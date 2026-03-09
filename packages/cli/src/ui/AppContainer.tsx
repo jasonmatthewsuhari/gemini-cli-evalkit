@@ -259,6 +259,39 @@ export const AppContainer = (props: AppContainerProps) => {
 
   const [adminSettingsChanged, setAdminSettingsChanged] = useState(false);
 
+  const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+
+  const toggleExpansion = useCallback((callId: string) => {
+    setExpandedTools((prev) => {
+      const next = new Set(prev);
+      if (next.has(callId)) {
+        next.delete(callId);
+      } else {
+        next.add(callId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleAllExpansion = useCallback((callIds: string[]) => {
+    setExpandedTools((prev) => {
+      const next = new Set(prev);
+      const anyCollapsed = callIds.some((id) => !next.has(id));
+
+      if (anyCollapsed) {
+        callIds.forEach((id) => next.add(id));
+      } else {
+        callIds.forEach((id) => next.delete(id));
+      }
+      return next;
+    });
+  }, []);
+
+  const isExpanded = useCallback(
+    (callId: string) => expandedTools.has(callId),
+    [expandedTools],
+  );
+
   const [shellModeActive, setShellModeActive] = useState(false);
   const [modelSwitchedFromQuotaError, setModelSwitchedFromQuotaError] =
     useState<boolean>(false);
@@ -1675,214 +1708,6 @@ Logging in with Google... Restarting Gemini CLI to continue.
     errorVerbosity: settings.merged.ui.errorVerbosity,
   });
 
-  const handleGlobalKeypress = useCallback(
-    (key: Key): boolean => {
-      // Debug log keystrokes if enabled
-      if (settings.merged.general.debugKeystrokeLogging) {
-        debugLogger.log('[DEBUG] Keystroke:', JSON.stringify(key));
-      }
-
-      if (shortcutsHelpVisible && isHelpDismissKey(key)) {
-        setShortcutsHelpVisible(false);
-      }
-
-      if (isAlternateBuffer && keyMatchers[Command.TOGGLE_COPY_MODE](key)) {
-        setCopyModeEnabled(true);
-        disableMouseEvents();
-        return true;
-      }
-
-      if (keyMatchers[Command.QUIT](key)) {
-        // If the user presses Ctrl+C, we want to cancel any ongoing requests.
-        // This should happen regardless of the count.
-        cancelOngoingRequest?.();
-
-        handleCtrlCPress();
-        return true;
-      } else if (keyMatchers[Command.EXIT](key)) {
-        handleCtrlDPress();
-        return true;
-      } else if (keyMatchers[Command.SUSPEND_APP](key)) {
-        handleSuspend();
-      } else if (
-        keyMatchers[Command.TOGGLE_COPY_MODE](key) &&
-        !isAlternateBuffer
-      ) {
-        showTransientMessage({
-          text: 'Use Ctrl+O to expand and collapse blocks of content.',
-          type: TransientMessageType.Warning,
-        });
-        return true;
-      }
-
-      let enteringConstrainHeightMode = false;
-      if (!constrainHeight) {
-        enteringConstrainHeightMode = true;
-        setConstrainHeight(true);
-        if (keyMatchers[Command.SHOW_MORE_LINES](key)) {
-          // If the user manually collapses the view, show the hint and reset the x-second timer.
-          triggerExpandHint(true);
-        }
-        if (!isAlternateBuffer) {
-          refreshStatic();
-        }
-      }
-
-      if (keyMatchers[Command.SHOW_ERROR_DETAILS](key)) {
-        if (settings.merged.general.devtools) {
-          void (async () => {
-            const { toggleDevToolsPanel } = await import(
-              '../utils/devtoolsService.js'
-            );
-            await toggleDevToolsPanel(
-              config,
-              showErrorDetails,
-              () => setShowErrorDetails((prev) => !prev),
-              () => setShowErrorDetails(true),
-            );
-          })();
-        } else {
-          setShowErrorDetails((prev) => !prev);
-        }
-        return true;
-      } else if (keyMatchers[Command.SHOW_FULL_TODOS](key)) {
-        setShowFullTodos((prev) => !prev);
-        return true;
-      } else if (keyMatchers[Command.TOGGLE_MARKDOWN](key)) {
-        setRenderMarkdown((prev) => {
-          const newValue = !prev;
-          // Force re-render of static content
-          refreshStatic();
-          return newValue;
-        });
-        return true;
-      } else if (
-        keyMatchers[Command.SHOW_IDE_CONTEXT_DETAIL](key) &&
-        config.getIdeMode() &&
-        ideContextState
-      ) {
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
-        handleSlashCommand('/ide status');
-        return true;
-      } else if (
-        keyMatchers[Command.SHOW_MORE_LINES](key) &&
-        !enteringConstrainHeightMode
-      ) {
-        setConstrainHeight(false);
-        // If the user manually expands the view, show the hint and reset the x-second timer.
-        triggerExpandHint(true);
-        if (!isAlternateBuffer) {
-          refreshStatic();
-        }
-        return true;
-      } else if (
-        (keyMatchers[Command.FOCUS_SHELL_INPUT](key) ||
-          keyMatchers[Command.UNFOCUS_BACKGROUND_SHELL_LIST](key)) &&
-        (activePtyId || (isBackgroundShellVisible && backgroundShells.size > 0))
-      ) {
-        if (embeddedShellFocused) {
-          const capturedTime = lastOutputTimeRef.current;
-          if (tabFocusTimeoutRef.current)
-            clearTimeout(tabFocusTimeoutRef.current);
-          tabFocusTimeoutRef.current = setTimeout(() => {
-            if (lastOutputTimeRef.current === capturedTime) {
-              setEmbeddedShellFocused(false);
-            } else {
-              showTransientMessage({
-                text: 'Use Shift+Tab to unfocus',
-                type: TransientMessageType.Warning,
-              });
-            }
-          }, 150);
-          return false;
-        }
-
-        const isIdle = Date.now() - lastOutputTimeRef.current >= 100;
-
-        if (isIdle && !activePtyId && !isBackgroundShellVisible) {
-          if (tabFocusTimeoutRef.current)
-            clearTimeout(tabFocusTimeoutRef.current);
-          toggleBackgroundShell();
-          setEmbeddedShellFocused(true);
-          if (backgroundShells.size > 1) setIsBackgroundShellListOpen(true);
-          return true;
-        }
-
-        setEmbeddedShellFocused(true);
-        return true;
-      } else if (
-        keyMatchers[Command.UNFOCUS_SHELL_INPUT](key) ||
-        keyMatchers[Command.UNFOCUS_BACKGROUND_SHELL](key)
-      ) {
-        if (embeddedShellFocused) {
-          setEmbeddedShellFocused(false);
-          return true;
-        }
-        return false;
-      } else if (keyMatchers[Command.TOGGLE_BACKGROUND_SHELL](key)) {
-        if (activePtyId) {
-          backgroundCurrentShell();
-          // After backgrounding, we explicitly do NOT show or focus the background UI.
-        } else {
-          toggleBackgroundShell();
-          // Toggle focus based on intent: if we were hiding, unfocus; if showing, focus.
-          if (!isBackgroundShellVisible && backgroundShells.size > 0) {
-            setEmbeddedShellFocused(true);
-            if (backgroundShells.size > 1) {
-              setIsBackgroundShellListOpen(true);
-            }
-          } else {
-            setEmbeddedShellFocused(false);
-          }
-        }
-        return true;
-      } else if (keyMatchers[Command.TOGGLE_BACKGROUND_SHELL_LIST](key)) {
-        if (backgroundShells.size > 0 && isBackgroundShellVisible) {
-          if (!embeddedShellFocused) {
-            setEmbeddedShellFocused(true);
-          }
-          setIsBackgroundShellListOpen(true);
-        }
-        return true;
-      }
-      return false;
-    },
-    [
-      constrainHeight,
-      setConstrainHeight,
-      setShowErrorDetails,
-      config,
-      ideContextState,
-      handleCtrlCPress,
-      handleCtrlDPress,
-      handleSlashCommand,
-      cancelOngoingRequest,
-      activePtyId,
-      handleSuspend,
-      embeddedShellFocused,
-      settings.merged.general.debugKeystrokeLogging,
-      refreshStatic,
-      setCopyModeEnabled,
-      tabFocusTimeoutRef,
-      isAlternateBuffer,
-      shortcutsHelpVisible,
-      backgroundCurrentShell,
-      toggleBackgroundShell,
-      backgroundShells,
-      isBackgroundShellVisible,
-      setIsBackgroundShellListOpen,
-      lastOutputTimeRef,
-      showTransientMessage,
-      settings.merged.general.devtools,
-      showErrorDetails,
-      triggerExpandHint,
-      keyMatchers,
-      isHelpDismissKey,
-    ],
-  );
-
-  useKeypress(handleGlobalKeypress, { isActive: true, priority: true });
-
   useKeypress(
     (key: Key) => {
       if (
@@ -2105,6 +1930,240 @@ Logging in with Google... Restarting Gemini CLI to continue.
     isPassiveShortcutsHelpState,
     setShortcutsHelpVisible,
   ]);
+
+  const handleGlobalKeypress = useCallback(
+    (key: Key): boolean => {
+      // Debug log keystrokes if enabled
+      if (settings.merged.general.debugKeystrokeLogging) {
+        debugLogger.log('[DEBUG] Keystroke:', JSON.stringify(key));
+      }
+
+      if (shortcutsHelpVisible && isHelpDismissKey(key)) {
+        setShortcutsHelpVisible(false);
+      }
+
+      if (isAlternateBuffer && keyMatchers[Command.TOGGLE_COPY_MODE](key)) {
+        setCopyModeEnabled(true);
+        disableMouseEvents();
+        return true;
+      }
+
+      if (keyMatchers[Command.QUIT](key)) {
+        // If the user presses Ctrl+C, we want to cancel any ongoing requests.
+        // This should happen regardless of the count.
+        cancelOngoingRequest?.();
+
+        handleCtrlCPress();
+        return true;
+      } else if (keyMatchers[Command.EXIT](key)) {
+        handleCtrlDPress();
+        return true;
+      } else if (keyMatchers[Command.SUSPEND_APP](key)) {
+        handleSuspend();
+      } else if (
+        keyMatchers[Command.TOGGLE_COPY_MODE](key) &&
+        !isAlternateBuffer
+      ) {
+        showTransientMessage({
+          text: 'Use Ctrl+O to expand and collapse blocks of content.',
+          type: TransientMessageType.Warning,
+        });
+        return true;
+      }
+
+      if (keyMatchers[Command.SHOW_MORE_LINES](key)) {
+        const nextConstrainHeight = !constrainHeight;
+        setConstrainHeight(nextConstrainHeight);
+        triggerExpandHint(true);
+
+        // Find the boundary of the last user prompt
+        let lastUserPromptIndex = -1;
+        for (let i = historyManager.history.length - 1; i >= 0; i--) {
+          const type = historyManager.history[i].type;
+          if (type === 'user' || type === 'user_shell') {
+            lastUserPromptIndex = i;
+            break;
+          }
+        }
+
+        const targetToolCallIds: string[] = [];
+        // Collect IDs from history after last user prompt
+        historyManager.history.forEach((item, index) => {
+          if (index > lastUserPromptIndex && item.type === 'tool_group') {
+            item.tools.forEach((t) => {
+              if (t.callId) targetToolCallIds.push(t.callId);
+            });
+          }
+        });
+        // Collect IDs from pending items
+        pendingHistoryItems.forEach((item) => {
+          if (item.type === 'tool_group') {
+            item.tools.forEach((t) => {
+              if (t.callId) targetToolCallIds.push(t.callId);
+            });
+          }
+        });
+
+        if (targetToolCallIds.length > 0) {
+          toggleAllExpansion(targetToolCallIds);
+        }
+
+        // Force layout refresh after a short delay to allow the terminal layout to settle.
+        // This prevents the "blank screen" issue by ensuring Ink re-measures after
+        // any async subview updates are complete.
+        setTimeout(() => {
+          refreshStatic();
+        }, 500);
+
+        return true;
+      }
+
+      if (keyMatchers[Command.SHOW_ERROR_DETAILS](key)) {
+        if (settings.merged.general.devtools) {
+          void (async () => {
+            const { toggleDevToolsPanel } = await import(
+              '../utils/devtoolsService.js'
+            );
+            await toggleDevToolsPanel(
+              config,
+              showErrorDetails,
+              () => setShowErrorDetails((prev) => !prev),
+              () => setShowErrorDetails(true),
+            );
+          })();
+        } else {
+          setShowErrorDetails((prev) => !prev);
+        }
+        return true;
+      } else if (keyMatchers[Command.SHOW_FULL_TODOS](key)) {
+        setShowFullTodos((prev) => !prev);
+        return true;
+      } else if (keyMatchers[Command.TOGGLE_MARKDOWN](key)) {
+        setRenderMarkdown((prev) => {
+          const newValue = !prev;
+          // Force re-render of static content
+          refreshStatic();
+          return newValue;
+        });
+        return true;
+      } else if (
+        keyMatchers[Command.SHOW_IDE_CONTEXT_DETAIL](key) &&
+        config.getIdeMode() &&
+        ideContextState
+      ) {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        handleSlashCommand('/ide status');
+        return true;
+      } else if (
+        (keyMatchers[Command.FOCUS_SHELL_INPUT](key) ||
+          keyMatchers[Command.UNFOCUS_BACKGROUND_SHELL_LIST](key)) &&
+        (activePtyId || (isBackgroundShellVisible && backgroundShells.size > 0))
+      ) {
+        if (embeddedShellFocused) {
+          const capturedTime = lastOutputTimeRef.current;
+          if (tabFocusTimeoutRef.current)
+            clearTimeout(tabFocusTimeoutRef.current);
+          tabFocusTimeoutRef.current = setTimeout(() => {
+            if (lastOutputTimeRef.current === capturedTime) {
+              setEmbeddedShellFocused(false);
+            } else {
+              showTransientMessage({
+                text: 'Use Shift+Tab to unfocus',
+                type: TransientMessageType.Warning,
+              });
+            }
+          }, 150);
+          return false;
+        }
+
+        const isIdle = Date.now() - lastOutputTimeRef.current >= 100;
+
+        if (isIdle && !activePtyId && !isBackgroundShellVisible) {
+          if (tabFocusTimeoutRef.current)
+            clearTimeout(tabFocusTimeoutRef.current);
+          toggleBackgroundShell();
+          setEmbeddedShellFocused(true);
+          if (backgroundShells.size > 1) setIsBackgroundShellListOpen(true);
+          return true;
+        }
+
+        setEmbeddedShellFocused(true);
+        return true;
+      } else if (
+        keyMatchers[Command.UNFOCUS_SHELL_INPUT](key) ||
+        keyMatchers[Command.UNFOCUS_BACKGROUND_SHELL](key)
+      ) {
+        if (embeddedShellFocused) {
+          setEmbeddedShellFocused(false);
+          return true;
+        }
+        return false;
+      } else if (keyMatchers[Command.TOGGLE_BACKGROUND_SHELL](key)) {
+        if (activePtyId) {
+          backgroundCurrentShell();
+          // After backgrounding, we explicitly do NOT show or focus the background UI.
+        } else {
+          toggleBackgroundShell();
+          // Toggle focus based on intent: if we were hiding, unfocus; if showing, focus.
+          if (!isBackgroundShellVisible && backgroundShells.size > 0) {
+            setEmbeddedShellFocused(true);
+            if (backgroundShells.size > 1) {
+              setIsBackgroundShellListOpen(true);
+            }
+          } else {
+            setEmbeddedShellFocused(false);
+          }
+        }
+        return true;
+      } else if (keyMatchers[Command.TOGGLE_BACKGROUND_SHELL_LIST](key)) {
+        if (backgroundShells.size > 0 && isBackgroundShellVisible) {
+          if (!embeddedShellFocused) {
+            setEmbeddedShellFocused(true);
+          }
+          setIsBackgroundShellListOpen(true);
+        }
+        return true;
+      }
+      return false;
+    },
+    [
+      constrainHeight,
+      setConstrainHeight,
+      setShowErrorDetails,
+      config,
+      ideContextState,
+      handleCtrlCPress,
+      handleCtrlDPress,
+      handleSlashCommand,
+      cancelOngoingRequest,
+      activePtyId,
+      handleSuspend,
+      embeddedShellFocused,
+      settings.merged.general.debugKeystrokeLogging,
+      refreshStatic,
+      setCopyModeEnabled,
+      tabFocusTimeoutRef,
+      isAlternateBuffer,
+      shortcutsHelpVisible,
+      backgroundCurrentShell,
+      toggleBackgroundShell,
+      backgroundShells,
+      isBackgroundShellVisible,
+      setIsBackgroundShellListOpen,
+      lastOutputTimeRef,
+      showTransientMessage,
+      settings.merged.general.devtools,
+      showErrorDetails,
+      triggerExpandHint,
+      keyMatchers,
+      isHelpDismissKey,
+      historyManager.history,
+      pendingHistoryItems,
+      toggleAllExpansion,
+    ],
+  );
+
+  useKeypress(handleGlobalKeypress, { isActive: true, priority: true });
 
   useEffect(() => {
     if (
@@ -2614,7 +2673,13 @@ Logging in with Google... Restarting Gemini CLI to continue.
               startupWarnings: props.startupWarnings || [],
             }}
           >
-            <ToolActionsProvider config={config} toolCalls={allToolCalls}>
+            <ToolActionsProvider
+              config={config}
+              toolCalls={allToolCalls}
+              isExpanded={isExpanded}
+              toggleExpansion={toggleExpansion}
+              toggleAllExpansion={toggleAllExpansion}
+            >
               <ShellFocusContext.Provider value={isFocused}>
                 <App key={`app-${forceRerenderKey}`} />
               </ShellFocusContext.Provider>
