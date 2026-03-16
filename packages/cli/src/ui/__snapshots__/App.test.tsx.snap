@@ -37,8 +37,8 @@ Tips for getting started:
 
 
 
-
 Notifications
+
 Composer
 "
 `;
@@ -99,8 +99,8 @@ exports[`App > Snapshots > renders with dialogs visible 1`] = `
 
 
 
-
 Notifications
+
 DialogManager
 "
 `;
@@ -142,8 +142,8 @@ HistoryItemDisplay
 
 
 
-
 Notifications
+
 Composer
 "
 `;
