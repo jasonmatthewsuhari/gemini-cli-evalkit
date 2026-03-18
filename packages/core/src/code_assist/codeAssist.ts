@@ -5,6 +5,12 @@
  */
 
 import { AuthType, type ContentGenerator } from '../core/contentGenerator.js';
+import {
+  logOnboardingStart,
+  logOnboardingSuccess,
+  OnboardingStartEvent,
+  OnboardingSuccessEvent,
+} from '../telemetry/index.js';
 import { getOauthClient } from './oauth2.js';
 import { setupUser } from './setup.js';
 import { CodeAssistServer, type HttpOptions } from './server.js';
@@ -21,12 +27,14 @@ export async function createCodeAssistContentGenerator(
     authType === AuthType.LOGIN_WITH_GOOGLE ||
     authType === AuthType.COMPUTE_ADC
   ) {
+    logOnboardingStart(config, new OnboardingStartEvent());
     const authClient = await getOauthClient(authType, config);
     const userData = await setupUser(
       authClient,
       config.getValidationHandler(),
       httpOptions,
     );
+    logOnboardingSuccess(config, new OnboardingSuccessEvent());
     return new CodeAssistServer(
       authClient,
       userData.projectId,

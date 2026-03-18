@@ -6,6 +6,12 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuthType } from '../core/contentGenerator.js';
+import {
+  logOnboardingStart,
+  logOnboardingSuccess,
+  OnboardingStartEvent,
+  OnboardingSuccessEvent,
+} from '../telemetry/index.js';
 import { getOauthClient } from './oauth2.js';
 import { setupUser } from './setup.js';
 import { CodeAssistServer } from './server.js';
@@ -22,11 +28,21 @@ vi.mock('./oauth2.js');
 vi.mock('./setup.js');
 vi.mock('./server.js');
 vi.mock('../core/loggingContentGenerator.js');
+vi.mock('../telemetry/index.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../telemetry/index.js')>();
+  return {
+    ...actual,
+    logOnboardingStart: vi.fn(),
+    logOnboardingSuccess: vi.fn(),
+  };
+});
 
 const mockedGetOauthClient = vi.mocked(getOauthClient);
 const mockedSetupUser = vi.mocked(setupUser);
 const MockedCodeAssistServer = vi.mocked(CodeAssistServer);
 const MockedLoggingContentGenerator = vi.mocked(LoggingContentGenerator);
+const mockedLogOnboardingStart = vi.mocked(logOnboardingStart);
+const mockedLogOnboardingSuccess = vi.mocked(logOnboardingSuccess);
 
 describe('codeAssist', () => {
   beforeEach(() => {
@@ -77,6 +93,14 @@ describe('codeAssist', () => {
         mockConfig,
       );
       expect(generator).toBeInstanceOf(MockedCodeAssistServer);
+      expect(mockedLogOnboardingStart).toHaveBeenCalledWith(
+        mockConfig,
+        expect.any(OnboardingStartEvent),
+      );
+      expect(mockedLogOnboardingSuccess).toHaveBeenCalledWith(
+        mockConfig,
+        expect.any(OnboardingSuccessEvent),
+      );
     });
 
     it('should create a server for COMPUTE_ADC', async () => {
@@ -109,6 +133,14 @@ describe('codeAssist', () => {
         mockConfig,
       );
       expect(generator).toBeInstanceOf(MockedCodeAssistServer);
+      expect(mockedLogOnboardingStart).toHaveBeenCalledWith(
+        mockConfig,
+        expect.any(OnboardingStartEvent),
+      );
+      expect(mockedLogOnboardingSuccess).toHaveBeenCalledWith(
+        mockConfig,
+        expect.any(OnboardingSuccessEvent),
+      );
     });
 
     it('should throw an error for unsupported auth types', async () => {

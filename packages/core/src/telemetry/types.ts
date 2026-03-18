@@ -2376,7 +2376,7 @@ export class OnboardingStartEvent implements BaseTelemetryEvent {
   }
 
   toLogBody(): string {
-    return 'Google auth started.';
+    return 'Onboarding started.';
   }
 }
 
@@ -2399,7 +2399,7 @@ export class OnboardingSuccessEvent implements BaseTelemetryEvent {
   }
 
   toLogBody(): string {
-    return 'Google auth succeeded.';
+    return 'Onboarding succeeded.';
   }
 }
 
