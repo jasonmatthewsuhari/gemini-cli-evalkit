@@ -12,12 +12,12 @@ import {
 } from './useAlternateBuffer.js';
 import type { Config } from '@google/gemini-cli-core';
 
-vi.mock('../contexts/ConfigContext.js', () => ({
-  useConfig: vi.fn(),
+vi.mock('../contexts/UIStateContext.js', () => ({
+  useUIState: vi.fn(),
 }));
 
-const mockUseConfig = vi.mocked(
-  await import('../contexts/ConfigContext.js').then((m) => m.useConfig),
+const mockUseUIState = vi.mocked(
+  await import('../contexts/UIStateContext.js').then((m) => m.useUIState),
 );
 
 describe('useAlternateBuffer', () => {
@@ -25,39 +25,42 @@ describe('useAlternateBuffer', () => {
     vi.clearAllMocks();
   });
 
-  it('should return false when config.getUseAlternateBuffer returns false', () => {
-    mockUseConfig.mockReturnValue({
-      getUseAlternateBuffer: () => false,
-    } as unknown as ReturnType<typeof mockUseConfig>);
+  it('should return false when isAlternateBuffer is false', () => {
+    mockUseUIState.mockReturnValue({
+      isAlternateBuffer: false,
+    } as unknown as ReturnType<typeof mockUseUIState>);
 
     const { result } = renderHook(() => useAlternateBuffer());
     expect(result.current).toBe(false);
   });
 
-  it('should return true when config.getUseAlternateBuffer returns true', () => {
-    mockUseConfig.mockReturnValue({
-      getUseAlternateBuffer: () => true,
-    } as unknown as ReturnType<typeof mockUseConfig>);
+  it('should return true when isAlternateBuffer is true', () => {
+    mockUseUIState.mockReturnValue({
+      isAlternateBuffer: true,
+    } as unknown as ReturnType<typeof mockUseUIState>);
 
     const { result } = renderHook(() => useAlternateBuffer());
     expect(result.current).toBe(true);
   });
 
-  it('should return the immutable config value, not react to settings changes', () => {
-    const mockConfig = {
-      getUseAlternateBuffer: () => true,
-    } as unknown as ReturnType<typeof mockUseConfig>;
-
-    mockUseConfig.mockReturnValue(mockConfig);
+  it('should react to UIState changes', () => {
+    let mockIsAlternateBuffer = true;
+    mockUseUIState.mockImplementation(
+      () =>
+        ({
+          isAlternateBuffer: mockIsAlternateBuffer,
+        }) as unknown as ReturnType<typeof mockUseUIState>,
+    );
 
     const { result, rerender } = renderHook(() => useAlternateBuffer());
 
     // Value should remain true even after rerender
     expect(result.current).toBe(true);
 
+    mockIsAlternateBuffer = false;
     rerender();
 
-    expect(result.current).toBe(true);
+    expect(result.current).toBe(false);
   });
 });
 

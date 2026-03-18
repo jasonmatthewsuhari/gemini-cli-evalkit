@@ -70,8 +70,10 @@ import {
   writeToStdout,
   disableMouseEvents,
   enterAlternateScreen,
+  exitAlternateScreen,
   enableMouseEvents,
   disableLineWrapping,
+  enableLineWrapping,
   shouldEnterAlternateScreen,
   startupProfiler,
   SessionStartSource,
@@ -234,7 +236,9 @@ export const AppContainer = (props: AppContainerProps) => {
   });
 
   useMemoryMonitor(historyManager);
-  const isAlternateBuffer = config.getUseAlternateBuffer();
+  const [isAlternateBuffer, setIsAlternateBuffer] = useState(() =>
+    config.getUseAlternateBuffer(),
+  );
   const [corgiMode, setCorgiMode] = useState(false);
   const [forceRerenderKey, setForceRerenderKey] = useState(0);
   const [debugMessage, setDebugMessage] = useState<string>('');
@@ -1686,6 +1690,24 @@ Logging in with Google... Restarting Gemini CLI to continue.
         setShortcutsHelpVisible(false);
       }
 
+      if (keyMatchers[Command.TOGGLE_ALTERNATE_BUFFER](key)) {
+        if (!isAlternateBuffer) {
+          enterAlternateScreen();
+          disableLineWrapping();
+          enableMouseEvents();
+          stdout.write('\x1b[2J\x1b[H');
+          setIsAlternateBuffer(true);
+        } else {
+          exitAlternateScreen();
+          stdout.write('\x1b[2J\x1b[H');
+          enableLineWrapping();
+          disableMouseEvents();
+          setIsAlternateBuffer(false);
+        }
+        setHistoryRemountKey((prev) => prev + 1);
+        return true;
+      }
+
       if (isAlternateBuffer && keyMatchers[Command.TOGGLE_COPY_MODE](key)) {
         setCopyModeEnabled(true);
         disableMouseEvents();
@@ -1878,6 +1900,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       triggerExpandHint,
       keyMatchers,
       isHelpDismissKey,
+      stdout,
     ],
   );
 
@@ -2194,7 +2217,8 @@ Logging in with Google... Restarting Gemini CLI to continue.
       accountSuspensionInfo,
       isAuthDialogOpen,
       isAwaitingApiKeyInput: authState === AuthState.AwaitingApiKeyInput,
-      apiKeyDefaultValue,
+      apiKeyDefaultValue: apiKeyDefaultValue ?? undefined,
+      isAlternateBuffer,
       editorError,
       isEditorDialogOpen,
       showPrivacyNotice,
@@ -2323,6 +2347,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       authError,
       accountSuspensionInfo,
       isAuthDialogOpen,
+      isAlternateBuffer,
       editorError,
       isEditorDialogOpen,
       showPrivacyNotice,

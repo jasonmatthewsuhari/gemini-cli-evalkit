@@ -573,6 +573,8 @@ const baseMockUiState = {
   nightly: false,
   updateInfo: null,
   pendingHistoryItems: [],
+  isAlternateBuffer: false,
+  apiKeyDefaultValue: undefined,
 };
 
 export const mockAppState: AppState = {
@@ -748,6 +750,7 @@ export const renderWithProviders = (
     ...baseState,
     terminalWidth,
     mainAreaWidth,
+    isAlternateBuffer: useAlternateBuffer ?? baseState.isAlternateBuffer,
   };
 
   themeManager.setTerminalBackground(baseState.terminalBackgroundColor);
