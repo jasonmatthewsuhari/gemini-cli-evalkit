@@ -1,4 +1,4 @@
-# Parallel sessions with Git worktrees
+# Parallel sessions with Git worktrees (experimental)
 
 When working on multiple tasks at once, you can use Git worktrees to give each
 Gemini session its own copy of the codebase. Git worktrees create separate
@@ -8,11 +8,13 @@ with another.
 
 Learn more about [session management](./session-management.md).
 
-> **Note:** This is a preview feature currently under active development. Your
+<!-- prettier-ignore -->
+> [!NOTE]
+> This is an experimental feature currently under active development. Your
 > feedback is invaluable as we refine this feature. If you have ideas,
 > suggestions, or encounter issues:
 >
-> - [Open an issue] on GitHub.
+> - [Open an issue](https://github.com/google-gemini/gemini-cli/issues/new?template=bug_report.yml) on GitHub.
 > - Use the **/bug** command within Gemini CLI to file an issue.
 
 Learn more in the official Git worktree
@@ -55,7 +57,9 @@ CLI in it.
   gemini --worktree
   ```
 
-> **Note:** Remember to initialize your development environment in each new
+<!-- prettier-ignore -->
+> [!NOTE]
+> Remember to initialize your development environment in each new
 > worktree according to your project's setup. Depending on your stack, this
 > might include running dependency installation (`npm install`, `yarn`), setting
 > up virtual environments, or following your project's standard build process.
