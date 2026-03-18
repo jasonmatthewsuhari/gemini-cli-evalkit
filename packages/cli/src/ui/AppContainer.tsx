@@ -74,6 +74,7 @@ import {
   enableMouseEvents,
   disableLineWrapping,
   enableLineWrapping,
+  clearTerminalScreen,
   shouldEnterAlternateScreen,
   startupProfiler,
   SessionStartSource,
@@ -1695,11 +1696,11 @@ Logging in with Google... Restarting Gemini CLI to continue.
           enterAlternateScreen();
           disableLineWrapping();
           enableMouseEvents();
-          stdout.write('\x1b[2J\x1b[H');
+          clearTerminalScreen();
           setIsAlternateBuffer(true);
         } else {
           exitAlternateScreen();
-          stdout.write('\x1b[2J\x1b[H');
+          clearTerminalScreen();
           enableLineWrapping();
           disableMouseEvents();
           setIsAlternateBuffer(false);
@@ -1900,7 +1901,6 @@ Logging in with Google... Restarting Gemini CLI to continue.
       triggerExpandHint,
       keyMatchers,
       isHelpDismissKey,
-      stdout,
     ],
   );
 

@@ -65,6 +65,10 @@ export function disableLineWrapping() {
   writeToStdout('\x1b[?7l');
 }
 
+export function clearTerminalScreen() {
+  writeToStdout('\x1b[2J\x1b[H');
+}
+
 export function enterAlternateScreen() {
   writeToStdout('\x1b[?1049h');
 }
