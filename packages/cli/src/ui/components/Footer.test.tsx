@@ -8,6 +8,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { renderWithProviders } from '../../test-utils/render.js';
 import { Footer } from './Footer.js';
 import { createMockSettings } from '../../test-utils/settings.js';
+import { type Config } from '@google/gemini-cli-core';
 import path from 'node:path';
 
 // Normalize paths to POSIX slashes for stable cross-platform snapshots.
@@ -16,7 +17,11 @@ const normalizeFrame = (frame: string | undefined) => {
   return frame.replace(/\\/g, '/');
 };
 
-let mockIsDevelopment = false;
+const { mocks } = vi.hoisted(() => ({
+  mocks: {
+    isDevelopment: false,
+  },
+}));
 
 vi.mock('../../utils/installationInfo.js', async (importOriginal) => {
   const original =
@@ -24,7 +29,7 @@ vi.mock('../../utils/installationInfo.js', async (importOriginal) => {
   return {
     ...original,
     get isDevelopment() {
-      return mockIsDevelopment;
+      return mocks.isDevelopment;
     },
   };
 });
@@ -49,6 +54,15 @@ const defaultProps = {
     '/Users/test/project/foo/bar/and/some/more/directories/to/make/it/long',
   branchName: 'main',
 };
+
+const mockConfig = {
+  getTargetDir: () => defaultProps.targetDir,
+  getDebugMode: () => false,
+  getModel: () => defaultProps.model,
+  getIdeMode: () => false,
+  isTrustedFolder: () => true,
+  getExtensionRegistryURI: () => undefined,
+} as unknown as Config;
 
 const mockSessionStats = {
   sessionId: 'test-session-id',
@@ -110,9 +124,10 @@ describe('<Footer />', () => {
   });
 
   it('renders the component', async () => {
-    const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+    const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
       <Footer />,
       {
+        config: mockConfig,
         width: 120,
         uiState: {
           branchName: defaultProps.branchName,
@@ -127,9 +142,10 @@ describe('<Footer />', () => {
 
   describe('path display', () => {
     it('should display a shortened path on a narrow terminal', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 79,
           uiState: { sessionStats: mockSessionStats },
         },
@@ -143,9 +159,10 @@ describe('<Footer />', () => {
     });
 
     it('should use wide layout at 80 columns', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 80,
           uiState: { sessionStats: mockSessionStats },
         },
@@ -158,9 +175,10 @@ describe('<Footer />', () => {
     });
 
     it('should not truncate high-priority items on narrow terminals (regression)', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 60,
           uiState: {
             sessionStats: mockSessionStats,
@@ -190,9 +208,10 @@ describe('<Footer />', () => {
   });
 
   it('displays the branch name when provided', async () => {
-    const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+    const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
       <Footer />,
       {
+        config: mockConfig,
         width: 120,
         uiState: {
           branchName: defaultProps.branchName,
@@ -206,9 +225,10 @@ describe('<Footer />', () => {
   });
 
   it('does not display the branch name when not provided', async () => {
-    const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+    const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
       <Footer />,
       {
+        config: mockConfig,
         width: 120,
         uiState: { branchName: undefined, sessionStats: mockSessionStats },
       },
@@ -219,9 +239,10 @@ describe('<Footer />', () => {
   });
 
   it('displays the model name and context percentage', async () => {
-    const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+    const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
       <Footer />,
       {
+        config: mockConfig,
         width: 120,
         uiState: {
           currentModel: defaultProps.model,
@@ -246,9 +267,10 @@ describe('<Footer />', () => {
   });
 
   it('displays the usage indicator when usage is low', async () => {
-    const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+    const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
       <Footer />,
       {
+        config: mockConfig,
         width: 120,
         uiState: {
           sessionStats: mockSessionStats,
@@ -274,9 +296,10 @@ describe('<Footer />', () => {
   });
 
   it('hides the usage indicator when usage is not near limit', async () => {
-    const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+    const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
       <Footer />,
       {
+        config: mockConfig,
         width: 120,
         uiState: {
           sessionStats: mockSessionStats,
@@ -302,9 +325,10 @@ describe('<Footer />', () => {
   });
 
   it('displays "Limit reached" message when remaining is 0', async () => {
-    const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+    const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
       <Footer />,
       {
+        config: mockConfig,
         width: 120,
         uiState: {
           sessionStats: mockSessionStats,
@@ -330,9 +354,10 @@ describe('<Footer />', () => {
   });
 
   it('displays the model name and abbreviated context used label on narrow terminals', async () => {
-    const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+    const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
       <Footer />,
       {
+        config: mockConfig,
         width: 99,
         uiState: { sessionStats: mockSessionStats },
         settings: createMockSettings({
@@ -353,9 +378,10 @@ describe('<Footer />', () => {
 
   describe('sandbox and trust info', () => {
     it('should display untrusted when isTrustedFolder is false', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: { isTrustedFolder: false, sessionStats: mockSessionStats },
         },
@@ -367,9 +393,10 @@ describe('<Footer />', () => {
 
     it('should display custom sandbox info when SANDBOX env is set', async () => {
       vi.stubEnv('SANDBOX', 'gemini-cli-test-sandbox');
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: {
             isTrustedFolder: undefined,
@@ -386,9 +413,10 @@ describe('<Footer />', () => {
     it('should display macOS Seatbelt info when SANDBOX is sandbox-exec', async () => {
       vi.stubEnv('SANDBOX', 'sandbox-exec');
       vi.stubEnv('SEATBELT_PROFILE', 'test-profile');
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: { isTrustedFolder: true, sessionStats: mockSessionStats },
         },
@@ -402,9 +430,10 @@ describe('<Footer />', () => {
     it('should display "no sandbox" when SANDBOX is not set and folder is trusted', async () => {
       // Clear any SANDBOX env var that might be set.
       vi.stubEnv('SANDBOX', '');
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: { isTrustedFolder: true, sessionStats: mockSessionStats },
         },
@@ -417,9 +446,10 @@ describe('<Footer />', () => {
 
     it('should prioritize untrusted message over sandbox info', async () => {
       vi.stubEnv('SANDBOX', 'gemini-cli-test-sandbox');
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: { isTrustedFolder: false, sessionStats: mockSessionStats },
         },
@@ -434,9 +464,10 @@ describe('<Footer />', () => {
 
   describe('footer configuration filtering (golden snapshots)', () => {
     it('renders complete footer with all sections visible (baseline)', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: { sessionStats: mockSessionStats },
           settings: createMockSettings({
@@ -456,7 +487,7 @@ describe('<Footer />', () => {
     });
 
     it('renders footer with all optional sections hidden (minimal footer)', async () => {
-      const { lastFrame, unmount } = renderWithProviders(<Footer />, {
+      const { lastFrame, unmount } = await renderWithProviders(<Footer />, {
         width: 120,
         uiState: { sessionStats: mockSessionStats },
         settings: createMockSettings({
@@ -478,9 +509,10 @@ describe('<Footer />', () => {
     });
 
     it('renders footer with only model info hidden (partial filtering)', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: { sessionStats: mockSessionStats },
           settings: createMockSettings({
@@ -500,9 +532,10 @@ describe('<Footer />', () => {
     });
 
     it('renders footer with CWD and model info hidden to test alignment (only sandbox visible)', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: { sessionStats: mockSessionStats },
           settings: createMockSettings({
@@ -524,9 +557,10 @@ describe('<Footer />', () => {
     });
 
     it('hides the context percentage when hideContextPercentage is true', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: { sessionStats: mockSessionStats },
           settings: createMockSettings({
@@ -544,9 +578,10 @@ describe('<Footer />', () => {
       unmount();
     });
     it('shows the context percentage when hideContextPercentage is false', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: { sessionStats: mockSessionStats },
           settings: createMockSettings({
@@ -564,9 +599,10 @@ describe('<Footer />', () => {
       unmount();
     });
     it('renders complete footer in narrow terminal (baseline narrow)', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 79,
           uiState: { sessionStats: mockSessionStats },
           settings: createMockSettings({
@@ -588,7 +624,7 @@ describe('<Footer />', () => {
 
   describe('Footer Token Formatting', () => {
     const renderWithTokens = async (tokens: number) => {
-      const result = renderWithProviders(<Footer />, {
+      const result = await renderWithProviders(<Footer />, {
         width: 120,
         uiState: {
           sessionStats: {
@@ -656,17 +692,18 @@ describe('<Footer />', () => {
 
   describe('error summary visibility', () => {
     beforeEach(() => {
-      mockIsDevelopment = false;
+      mocks.isDevelopment = false;
     });
 
     afterEach(() => {
-      mockIsDevelopment = false;
+      mocks.isDevelopment = false;
     });
 
     it('hides error summary in low verbosity mode out of dev mode', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: {
             sessionStats: mockSessionStats,
@@ -682,10 +719,11 @@ describe('<Footer />', () => {
     });
 
     it('shows error summary in low verbosity mode in dev mode', async () => {
-      mockIsDevelopment = true;
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      mocks.isDevelopment = true;
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: {
             sessionStats: mockSessionStats,
@@ -702,9 +740,10 @@ describe('<Footer />', () => {
     });
 
     it('shows error summary in full verbosity mode', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: {
             sessionStats: mockSessionStats,
@@ -723,9 +762,10 @@ describe('<Footer />', () => {
 
   describe('Footer Custom Items', () => {
     it('renders items in the specified order', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: {
             currentModel: 'gemini-pro',
@@ -750,9 +790,10 @@ describe('<Footer />', () => {
     });
 
     it('renders multiple items with proper alignment', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: {
             sessionStats: mockSessionStats,
@@ -786,7 +827,7 @@ describe('<Footer />', () => {
     });
 
     it('handles empty items array', async () => {
-      const { lastFrame, unmount } = renderWithProviders(<Footer />, {
+      const { lastFrame, unmount } = await renderWithProviders(<Footer />, {
         width: 120,
         uiState: { sessionStats: mockSessionStats },
         settings: createMockSettings({
@@ -807,9 +848,10 @@ describe('<Footer />', () => {
     });
 
     it('does not render items that are conditionally hidden', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: {
             sessionStats: mockSessionStats,
@@ -837,9 +879,10 @@ describe('<Footer />', () => {
 
   describe('fallback mode display', () => {
     it('should display Flash model when in fallback mode, not the configured Pro model', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: {
             sessionStats: mockSessionStats,
@@ -856,9 +899,10 @@ describe('<Footer />', () => {
     });
 
     it('should display Pro model when NOT in fallback mode', async () => {
-      const { lastFrame, waitUntilReady, unmount } = renderWithProviders(
+      const { lastFrame, waitUntilReady, unmount } = await renderWithProviders(
         <Footer />,
         {
+          config: mockConfig,
           width: 120,
           uiState: {
             sessionStats: mockSessionStats,
