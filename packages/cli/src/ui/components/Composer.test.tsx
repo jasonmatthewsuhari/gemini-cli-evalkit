@@ -696,7 +696,7 @@ describe('Composer', () => {
       },
     );
 
-    it('shows minimal mode badge "YOLO" when clean UI details are hidden and YOLO mode is active', async () => {
+    it('shows minimal mode badge "WILDCARD" when clean UI details are hidden and YOLO mode is active', async () => {
       const config = createMockConfig({
         getAllowedTools: vi.fn(() => ['*']),
       });
@@ -706,7 +706,7 @@ describe('Composer', () => {
       });
 
       const { lastFrame } = await renderComposer(uiState, undefined, config);
-      expect(lastFrame()).toContain('YOLO');
+      expect(lastFrame()).toContain('WILDCARD');
     });
 
     it('hides minimal mode badge while loading in clean mode', async () => {

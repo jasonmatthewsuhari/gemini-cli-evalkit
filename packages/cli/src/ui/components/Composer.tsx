@@ -118,7 +118,7 @@ export const Composer = ({ isFocused = true }: { isFocused?: boolean }) => {
   const isYoloMode = config.getAllowedTools()?.includes('*');
   let modeBleedThrough: { text: string; color: string } | null = null;
   if (isYoloMode) {
-    modeBleedThrough = { text: 'YOLO', color: theme.status.error };
+    modeBleedThrough = { text: 'WILDCARD', color: theme.status.error };
   } else {
     switch (showApprovalModeIndicator) {
       case ApprovalMode.PLAN:

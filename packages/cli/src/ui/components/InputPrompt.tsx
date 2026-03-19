@@ -1468,7 +1468,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
     statusText = 'Shell mode';
   } else if (showYoloStyling) {
     statusColor = theme.status.error;
-    statusText = 'YOLO mode';
+    statusText = 'Wildcard policy';
   } else if (showPlanStyling) {
     statusColor = theme.status.success;
     statusText = 'Plan mode';

@@ -30,7 +30,7 @@ export const ApprovalModeIndicator: React.FC<ApprovalModeIndicatorProps> = ({
 
   if (isYoloMode) {
     textColor = theme.status.error;
-    textContent = 'YOLO';
+    textContent = 'WILDCARD';
     subText = '';
   } else {
     switch (approvalMode) {

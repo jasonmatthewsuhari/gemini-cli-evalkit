@@ -86,7 +86,7 @@ export class Task {
   currentAgentMessageId = uuidv4();
   promptCount = 0;
   autoExecute: boolean;
-  private get isYoloMatch(): boolean {
+  private get isWildcardPolicyEnabled(): boolean {
     return (
       this.autoExecute ||
       (this.config.getAllowedTools()?.includes('*') ?? false)
@@ -499,7 +499,7 @@ export class Task {
   }
 
   private checkInputRequiredState(): void {
-    if (this.isYoloMatch) {
+    if (this.isWildcardPolicyEnabled) {
       return;
     }
 
