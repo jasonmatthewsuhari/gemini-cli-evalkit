@@ -11,7 +11,11 @@ import { StreamingState } from '../types.js';
 import { renderWithProviders } from '../../test-utils/render.js';
 import { createMockSettings } from '../../test-utils/settings.js';
 import { waitFor } from '../../test-utils/async.js';
-import { type Config, CoreToolCallStatus } from '@google/gemini-cli-core';
+import {
+  type Config,
+  CoreToolCallStatus,
+  ApprovalMode,
+} from '@google/gemini-cli-core';
 import type { ConfirmingToolState } from '../hooks/useConfirmingTool.js';
 import { theme } from '../semantic-colors.js';
 
@@ -43,6 +47,7 @@ describe('ToolConfirmationQueue', () => {
   const mockConfig = {
     isTrustedFolder: () => true,
     getIdeMode: () => false,
+    getApprovalMode: () => ApprovalMode.DEFAULT,
     getDisableAlwaysAllow: () => false,
     getModel: () => 'gemini-pro',
     getDebugMode: () => false,

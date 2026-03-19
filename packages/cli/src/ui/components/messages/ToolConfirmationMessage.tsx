@@ -5,7 +5,7 @@
  */
 
 import type React from 'react';
-import { useMemo, useCallback, useState } from 'react';
+import { useEffect, useMemo, useCallback, useState } from 'react';
 import { Box, Text } from 'ink';
 import { DiffRenderer } from './DiffRenderer.js';
 import { RenderInline } from '../../utils/InlineMarkdownRenderer.js';
@@ -44,6 +44,11 @@ import {
 } from '../../utils/urlSecurityUtils.js';
 import { useKeyMatchers } from '../../hooks/useKeyMatchers.js';
 
+import {
+  ApprovalMode,
+  canShowAutoApproveCheckbox,
+} from '@google/gemini-cli-core';
+
 export interface ToolConfirmationMessageProps {
   callId: string;
   confirmationDetails: SerializableConfirmationDetails;
@@ -79,6 +84,7 @@ export const ToolConfirmationMessage: React.FC<
     callId,
     expanded: false,
   });
+  const [isCancelling, setIsCancelling] = useState(false);
   const isMcpToolDetailsExpanded =
     mcpDetailsExpansionState.callId === callId
       ? mcpDetailsExpansionState.expanded
@@ -183,7 +189,7 @@ export const ToolConfirmationMessage: React.FC<
         return true;
       }
       if (keyMatchers[Command.ESCAPE](key)) {
-        handleConfirm(ToolConfirmationOutcome.Cancel);
+        setIsCancelling(true);
         return true;
       }
       if (keyMatchers[Command.QUIT](key)) {
@@ -195,6 +201,20 @@ export const ToolConfirmationMessage: React.FC<
     },
     { isActive: isFocused, priority: true },
   );
+
+  // TODO(#23009): Remove this hack once we migrate to the new renderer.
+  // Why useEffect is used here instead of calling handleConfirm directly:
+  // There is a race condition where calling handleConfirm immediately upon
+  // keypress removes the tool UI component while the UI is in an expanded state.
+  // This simultaneously triggers setConstrainHeight, causing render two footers.
+  // By bridging the cancel action through state (isCancelling) and this useEffect,
+  // we delay handleConfirm until the next render cycle, ensuring setConstrainHeight
+  // resolves properly first.
+  useEffect(() => {
+    if (isCancelling) {
+      handleConfirm(ToolConfirmationOutcome.Cancel);
+    }
+  }, [isCancelling, handleConfirm]);
 
   const handleSelect = useCallback(
     (item: ToolConfirmationOutcome) => handleConfirm(item),
@@ -284,7 +304,15 @@ export const ToolConfirmationMessage: React.FC<
           value: ToolConfirmationOutcome.ProceedAlways,
           key: `Allow for this session`,
         });
-        if (allowPermanentApproval) {
+
+        const isAcceptEditsActive =
+          config.getApprovalMode() === ApprovalMode.AUTO_EDIT;
+        const canAutoApprove = canShowAutoApproveCheckbox(
+          confirmationDetails.command,
+          isAcceptEditsActive,
+        );
+
+        if (allowPermanentApproval && canAutoApprove) {
           options.push({
             label: `Allow this command for all future sessions`,
             value: ToolConfirmationOutcome.ProceedAlwaysAndSave,
