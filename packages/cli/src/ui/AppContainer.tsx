@@ -1701,6 +1701,12 @@ Logging in with Google... Restarting Gemini CLI to continue.
             clearTerminalScreen();
             setIsAlternateBuffer(true);
             isAlternateBufferRef.current = true;
+            setHistoryRemountKey((prev) => prev + 1);
+          } else {
+            showTransientMessage({
+              text: 'Alternate buffer mode is disabled when screen reader mode is active.',
+              type: TransientMessageType.Warning,
+            });
           }
         } else {
           clearTerminalScreen();
@@ -1710,8 +1716,8 @@ Logging in with Google... Restarting Gemini CLI to continue.
           setCopyModeEnabled(false);
           setIsAlternateBuffer(false);
           isAlternateBufferRef.current = false;
+          setHistoryRemountKey((prev) => prev + 1);
         }
-        setHistoryRemountKey((prev) => prev + 1);
         return true;
       }
 

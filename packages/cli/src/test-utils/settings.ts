@@ -46,22 +46,23 @@ export const createMockSettings = (
     workspace,
     isTrusted,
     errors,
-
+     
     merged: mergedOverride,
     ...settingsOverrides
   } = overrides;
 
   const loaded = new LoadedSettings(
+     
     (system as any) || { path: '', settings: {}, originalSettings: {} },
-
+     
     (systemDefaults as any) || { path: '', settings: {}, originalSettings: {} },
-
+     
     (user as any) || {
       path: '',
       settings: settingsOverrides,
       originalSettings: settingsOverrides,
     },
-
+     
     (workspace as any) || { path: '', settings: {}, originalSettings: {} },
     isTrusted ?? true,
     errors || [],
@@ -75,6 +76,7 @@ export const createMockSettings = (
   // Assign any function overrides (e.g., vi.fn() for methods)
   for (const key in overrides) {
     if (typeof overrides[key] === 'function') {
+       
       (loaded as any)[key] = overrides[key];
     }
   }

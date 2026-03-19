@@ -416,10 +416,11 @@ export const render = (
   stdout.clear();
   act(() => {
     instance = inkRenderDirect(tree, {
+       
       stdout: stdout as unknown as NodeJS.WriteStream,
-
+       
       stderr: stderr as unknown as NodeJS.WriteStream,
-
+       
       stdin: stdin as unknown as NodeJS.ReadStream,
       debug: false,
       exitOnCtrlC: false,
@@ -498,6 +499,7 @@ const getMockConfigInternal = (): Config => {
   return mockConfigInternal;
 };
 
+ 
 const configProxy = new Proxy({} as Config, {
   get(_target, prop) {
     if (prop === 'getTargetDir') {
@@ -524,6 +526,7 @@ const configProxy = new Proxy({} as Config, {
     }
     const internal = getMockConfigInternal();
     if (prop in internal) {
+       
       return internal[prop as keyof typeof internal];
     }
     throw new Error(`mockConfig does not have property ${String(prop)}`);
@@ -655,7 +658,7 @@ export const renderWithProviders = (
     settings = mockSettings,
     uiState: providedUiState,
     width,
-
+     
     config = configProxy as unknown as Config,
     useAlternateBuffer = true,
     uiActions,
@@ -682,17 +685,20 @@ export const renderWithProviders = (
     button?: 0 | 1 | 2,
   ) => Promise<void>;
 } => {
+   
   const baseState: UIState = new Proxy(
     { ...baseMockUiState, ...providedUiState },
     {
       get(target, prop) {
         if (prop in target) {
+           
           return target[prop as keyof typeof target];
         }
         // For properties not in the base mock or provided state,
         // we'll check the original proxy to see if it's a defined but
         // unprovided property, and if not, throw.
         if (prop in baseMockUiState) {
+           
           return baseMockUiState[prop as keyof typeof baseMockUiState];
         }
         throw new Error(`mockUiState does not have property ${String(prop)}`);
@@ -730,7 +736,7 @@ export const renderWithProviders = (
         if (prop === 'getUseAlternateBuffer') {
           return () => useAlternateBuffer;
         }
-
+         
         return Reflect.get(target, prop, receiver);
       },
     });
@@ -840,8 +846,9 @@ export function renderHook<Result, Props>(
   waitUntilReady: () => Promise<void>;
   generateSvg: () => string;
 } {
+   
   const result = { current: undefined as unknown as Result };
-
+   
   let currentProps = options?.initialProps as Props;
 
   function TestComponent({
@@ -876,6 +883,7 @@ export function renderHook<Result, Props>(
 
   function rerender(props?: Props) {
     if (arguments.length > 0) {
+       
       currentProps = props as Props;
     }
     act(() => {
@@ -910,6 +918,7 @@ export function renderHookWithProviders<Result, Props>(
   waitUntilReady: () => Promise<void>;
   generateSvg: () => string;
 } {
+   
   const result = { current: undefined as unknown as Result };
 
   let setPropsFn: ((props: Props) => void) | undefined;
@@ -931,7 +940,7 @@ export function renderHookWithProviders<Result, Props>(
   act(() => {
     renderResult = renderWithProviders(
       <Wrapper>
-        {}
+        { }
         <TestComponent initialProps={options.initialProps as Props} />
       </Wrapper>,
       options,
@@ -941,6 +950,7 @@ export function renderHookWithProviders<Result, Props>(
   function rerender(newProps?: Props) {
     act(() => {
       if (arguments.length > 0 && setPropsFn) {
+         
         setPropsFn(newProps as Props);
       } else if (forceUpdateFn) {
         forceUpdateFn();
