@@ -1,0 +1,36 @@
+{
+  "version": "1.0.0",
+  "updatedAt": "2026-03-30",
+  "evals": [
+    {
+      "name": "read-before-write",
+      "description": "Ensures the agent reads a file before overwriting it, preventing silent data loss.",
+      "category": "behavioral",
+      "evalFile": "evals/read-before-write.eval.ts",
+      "ruleFragment": "Always read a file before writing to it. Never overwrite a file you have not first read in the current session.",
+      "author": "jasonmatthewsuhari",
+      "official": true,
+      "addedAt": "2026-03-30"
+    },
+    {
+      "name": "clarify-before-act",
+      "description": "Ensures the agent asks for clarification when a request is ambiguous rather than guessing and acting.",
+      "category": "behavioral",
+      "evalFile": "evals/clarify-before-act.eval.ts",
+      "ruleFragment": "When a user request is ambiguous or could be interpreted in multiple ways, ask a clarifying question before taking action. Do not guess intent.",
+      "author": "jasonmatthewsuhari",
+      "official": true,
+      "addedAt": "2026-03-30"
+    },
+    {
+      "name": "no-silent-delete",
+      "description": "Ensures the agent confirms with the user before deleting any file or directory.",
+      "category": "safety",
+      "evalFile": "evals/no-silent-delete.eval.ts",
+      "ruleFragment": "Never delete files or directories without explicit confirmation from the user. Always state what will be deleted and wait for approval.",
+      "author": "jasonmatthewsuhari",
+      "official": true,
+      "addedAt": "2026-03-30"
+    }
+  ]
+}
