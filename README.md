@@ -1,392 +1,193 @@
-# Gemini CLI
+# Gemini CLI Evalkit
 
-[![Gemini CLI CI](https://github.com/google-gemini/gemini-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/google-gemini/gemini-cli/actions/workflows/ci.yml)
-[![Gemini CLI E2E (Chained)](https://github.com/google-gemini/gemini-cli/actions/workflows/chained_e2e.yml/badge.svg)](https://github.com/google-gemini/gemini-cli/actions/workflows/chained_e2e.yml)
-[![Version](https://img.shields.io/npm/v/@google/gemini-cli)](https://www.npmjs.com/package/@google/gemini-cli)
-[![License](https://img.shields.io/github/license/google-gemini/gemini-cli)](https://github.com/google-gemini/gemini-cli/blob/main/LICENSE)
-[![View Code Wiki](https://assets.codewiki.google/readme-badge/static.svg)](https://codewiki.google/github.com/google-gemini/gemini-cli?utm_source=badge&utm_medium=github&utm_campaign=github.com/google-gemini/gemini-cli)
+`gemini-cli-evalkit` is an eval-focused fork of Gemini CLI for building and
+validating a behavioral eval workflow around `/generate-eval` and `/evals`. The
+fork is centered on one product loop: detect a bad agent behavior, turn it into
+a local eval-rule combo, inspect coverage and registry state, and optionally
+prepare that work for upstream contribution.
 
-![Gemini CLI Screenshot](/docs/assets/gemini-screenshot.png)
+This repository is not a general-purpose rebrand of Gemini CLI. It is a working
+implementation and research sandbox for a validated eval ecosystem: misbehavior
+detection, eval generation, local rule lifecycle management, marketplace-backed
+discovery, and coverage analysis.
 
-Gemini CLI is an open-source AI agent that brings the power of Gemini directly
-into your terminal. It provides lightweight access to Gemini, giving you the
-most direct path from your prompt to our model.
+## What This Fork Adds
 
-Learn all about Gemini CLI in our [documentation](https://geminicli.com/docs/).
+- `/generate-eval` for creating a local eval + rule from failure context or a
+  manual correction
+- `/evals` as a tabbed TUI for browsing, managing, and generating eval-rule
+  combos
+- Flat `/evals` subcommands for list, browse, coverage, show, enable, disable,
+  install, uninstall, and delete flows
+- Misbehavior detection that captures user corrections and seeds eval generation
+- A local-first eval-rule lifecycle under `.gemini/`
+- Registry-backed marketplace discovery through `eval-registry.json`
+- Static coverage analysis for tool and behavioral gaps
 
-## 🚀 Why Gemini CLI?
+## Core Workflow
 
-- **🎯 Free tier**: 60 requests/min and 1,000 requests/day with personal Google
-  account.
-- **🧠 Powerful Gemini 3 models**: Access to improved reasoning and 1M token
-  context window.
-- **🔧 Built-in tools**: Google Search grounding, file operations, shell
-  commands, web fetching.
-- **🔌 Extensible**: MCP (Model Context Protocol) support for custom
-  integrations.
-- **💻 Terminal-first**: Designed for developers who live in the command line.
-- **🛡️ Open source**: Apache 2.0 licensed.
+### 1. Generate an eval from a failure
 
-## 📦 Installation
-
-See
-[Gemini CLI installation, execution, and releases](./docs/get-started/installation.md)
-for recommended system specifications and a detailed installation guide.
-
-### Quick Install
-
-#### Run instantly with npx
+Start the CLI, reproduce a behavior issue, then run:
 
 ```bash
-# Using npx (no installation required)
-npx @google/gemini-cli
+/generate-eval agent should have asked for clarification before running the command
 ```
 
-#### Install globally with npm
+If misbehavior detection has already captured context from the conversation,
+`/generate-eval` can reuse that pending context automatically. Otherwise, it
+builds a draft from the recent conversation history or from the manual
+description you provide.
+
+### 2. Manage evals through `/evals`
+
+Open the eval UI:
 
 ```bash
-npm install -g @google/gemini-cli
+/evals
 ```
 
-#### Install globally with Homebrew (macOS/Linux)
+The TUI provides:
+
+- `All` to browse official, community, and generated evals
+- `Installed` to manage locally active eval-rule combos
+- `Coverage` to inspect current tool and behavioral gaps
+- `Generate` to create a new eval-rule combo directly from the UI
+- `GEMINI.md` to inspect active generated rule blocks
+
+### 3. Persist behavior locally
+
+Generated and installed eval-rule combos are stored under `.gemini/`, where the
+eval files, rule files, metadata, and managed `GEMINI.md` rule fragments live
+together. This keeps the workflow local-first and usable even when marketplace
+or upstream flows are unavailable.
+
+## Command Surface
+
+### `/generate-eval`
 
 ```bash
-brew install gemini-cli
+/generate-eval <describe what the agent did wrong>
 ```
 
-#### Install globally with MacPorts (macOS)
+Behavior:
 
-```bash
-sudo port install gemini-cli
-```
+- uses pending misbehavior context when available
+- otherwise derives context from recent conversation history
+- generates an eval draft and a paired rule fragment
+- saves accepted drafts into `.gemini/evals/` and `.gemini/eval-rules/`
+- updates `.gemini/GEMINI.md` with managed rule blocks
 
-#### Install with Anaconda (for restricted environments)
+### `/evals`
 
-```bash
-# Create and activate a new environment
-conda create -y -n gemini_env -c conda-forge nodejs
-conda activate gemini_env
+Default behavior opens the eval marketplace TUI.
 
-# Install Gemini CLI globally via npm (inside the environment)
-npm install -g @google/gemini-cli
-```
+Supported subcommands:
 
-## Release Cadence and Tags
+- `/evals list`
+- `/evals browse`
+- `/evals coverage`
+- `/evals show <name>`
+- `/evals install <name>`
+- `/evals uninstall <name>`
+- `/evals enable <name>`
+- `/evals disable <name>`
+- `/evals delete <name>`
 
-See [Releases](./docs/releases.md) for more details.
+## Local State
 
-### Preview
-
-New preview releases will be published each week at UTC 23:59 on Tuesdays. These
-releases will not have been fully vetted and may contain regressions or other
-outstanding issues. Please help us test and install with `preview` tag.
-
-```bash
-npm install -g @google/gemini-cli@preview
-```
-
-### Stable
-
-- New stable releases will be published each week at UTC 20:00 on Tuesdays, this
-  will be the full promotion of last week's `preview` release + any bug fixes
-  and validations. Use `latest` tag.
-
-```bash
-npm install -g @google/gemini-cli@latest
-```
-
-### Nightly
-
-- New releases will be published each day at UTC 00:00. This will be all changes
-  from the main branch as represented at time of release. It should be assumed
-  there are pending validations and issues. Use `nightly` tag.
-
-```bash
-npm install -g @google/gemini-cli@nightly
-```
-
-## 📋 Key Features
-
-### Code Understanding & Generation
-
-- Query and edit large codebases
-- Generate new apps from PDFs, images, or sketches using multimodal capabilities
-- Debug issues and troubleshoot with natural language
-
-### Automation & Integration
-
-- Automate operational tasks like querying pull requests or handling complex
-  rebases
-- Use MCP servers to connect new capabilities, including
-  [media generation with Imagen, Veo or Lyria](https://github.com/GoogleCloudPlatform/vertex-ai-creative-studio/tree/main/experiments/mcp-genmedia)
-- Run non-interactively in scripts for workflow automation
-
-### Advanced Capabilities
-
-- Ground your queries with built-in
-  [Google Search](https://ai.google.dev/gemini-api/docs/grounding) for real-time
-  information
-- Conversation checkpointing to save and resume complex sessions
-- Custom context files (GEMINI.md) to tailor behavior for your projects
-
-### GitHub Integration
-
-Integrate Gemini CLI directly into your GitHub workflows with
-[**Gemini CLI GitHub Action**](https://github.com/google-github-actions/run-gemini-cli):
-
-- **Pull Request Reviews**: Automated code review with contextual feedback and
-  suggestions
-- **Issue Triage**: Automated labeling and prioritization of GitHub issues based
-  on content analysis
-- **On-demand Assistance**: Mention `@gemini-cli` in issues and pull requests
-  for help with debugging, explanations, or task delegation
-- **Custom Workflows**: Build automated, scheduled and on-demand workflows
-  tailored to your team's needs
-
-## 🔐 Authentication Options
-
-Choose the authentication method that best fits your needs:
-
-### Option 1: Sign in with Google (OAuth login using your Google Account)
-
-**✨ Best for:** Individual developers as well as anyone who has a Gemini Code
-Assist License. (see
-[quota limits and terms of service](https://cloud.google.com/gemini/docs/quotas)
-for details)
-
-**Benefits:**
-
-- **Free tier**: 60 requests/min and 1,000 requests/day
-- **Gemini 3 models** with 1M token context window
-- **No API key management** - just sign in with your Google account
-- **Automatic updates** to latest models
-
-#### Start Gemini CLI, then choose _Sign in with Google_ and follow the browser authentication flow when prompted
-
-```bash
-gemini
-```
-
-#### If you are using a paid Code Assist License from your organization, remember to set the Google Cloud Project
-
-```bash
-# Set your Google Cloud Project
-export GOOGLE_CLOUD_PROJECT="YOUR_PROJECT_ID"
-gemini
-```
-
-### Option 2: Gemini API Key
-
-**✨ Best for:** Developers who need specific model control or paid tier access
-
-**Benefits:**
-
-- **Free tier**: 1000 requests/day with Gemini 3 (mix of flash and pro)
-- **Model selection**: Choose specific Gemini models
-- **Usage-based billing**: Upgrade for higher limits when needed
-
-```bash
-# Get your key from https://aistudio.google.com/apikey
-export GEMINI_API_KEY="YOUR_API_KEY"
-gemini
-```
-
-### Option 3: Vertex AI
-
-**✨ Best for:** Enterprise teams and production workloads
-
-**Benefits:**
-
-- **Enterprise features**: Advanced security and compliance
-- **Scalable**: Higher rate limits with billing account
-- **Integration**: Works with existing Google Cloud infrastructure
-
-```bash
-# Get your key from Google Cloud Console
-export GOOGLE_API_KEY="YOUR_API_KEY"
-export GOOGLE_GENAI_USE_VERTEXAI=true
-gemini
-```
-
-For Google Workspace accounts and other authentication methods, see the
-[authentication guide](./docs/get-started/authentication.md).
-
-## 🚀 Getting Started
-
-### Basic Usage
-
-#### Start in current directory
-
-```bash
-gemini
-```
-
-#### Include multiple directories
-
-```bash
-gemini --include-directories ../lib,../docs
-```
-
-#### Use specific model
-
-```bash
-gemini -m gemini-2.5-flash
-```
-
-#### Non-interactive mode for scripts
-
-Get a simple text response:
-
-```bash
-gemini -p "Explain the architecture of this codebase"
-```
-
-For more advanced scripting, including how to parse JSON and handle errors, use
-the `--output-format json` flag to get structured output:
-
-```bash
-gemini -p "Explain the architecture of this codebase" --output-format json
-```
-
-For real-time event streaming (useful for monitoring long-running operations),
-use `--output-format stream-json` to get newline-delimited JSON events:
-
-```bash
-gemini -p "Run tests and deploy" --output-format stream-json
-```
-
-### Quick Examples
-
-#### Start a new project
-
-```bash
-cd new-project/
-gemini
-> Write me a Discord bot that answers questions using a FAQ.md file I will provide
-```
-
-#### Analyze existing code
-
-```bash
-git clone https://github.com/google-gemini/gemini-cli
-cd gemini-cli
-gemini
-> Give me a summary of all of the changes that went in yesterday
-```
-
-## 📚 Documentation
-
-### Getting Started
-
-- [**Quickstart Guide**](./docs/get-started/index.md) - Get up and running
-  quickly.
-- [**Authentication Setup**](./docs/get-started/authentication.md) - Detailed
-  auth configuration.
-- [**Configuration Guide**](./docs/reference/configuration.md) - Settings and
-  customization.
-- [**Keyboard Shortcuts**](./docs/reference/keyboard-shortcuts.md) -
-  Productivity tips.
-
-### Core Features
-
-- [**Commands Reference**](./docs/reference/commands.md) - All slash commands
-  (`/help`, `/chat`, etc).
-- [**Custom Commands**](./docs/cli/custom-commands.md) - Create your own
-  reusable commands.
-- [**Context Files (GEMINI.md)**](./docs/cli/gemini-md.md) - Provide persistent
-  context to Gemini CLI.
-- [**Checkpointing**](./docs/cli/checkpointing.md) - Save and resume
-  conversations.
-- [**Token Caching**](./docs/cli/token-caching.md) - Optimize token usage.
-
-### Tools & Extensions
-
-- [**Built-in Tools Overview**](./docs/reference/tools.md)
-  - [File System Operations](./docs/tools/file-system.md)
-  - [Shell Commands](./docs/tools/shell.md)
-  - [Web Fetch & Search](./docs/tools/web-fetch.md)
-- [**MCP Server Integration**](./docs/tools/mcp-server.md) - Extend with custom
-  tools.
-- [**Custom Extensions**](./docs/extensions/index.md) - Build and share your own
-  commands.
-
-### Advanced Topics
-
-- [**Headless Mode (Scripting)**](./docs/cli/headless.md) - Use Gemini CLI in
-  automated workflows.
-- [**IDE Integration**](./docs/ide-integration/index.md) - VS Code companion.
-- [**Sandboxing & Security**](./docs/cli/sandbox.md) - Safe execution
-  environments.
-- [**Trusted Folders**](./docs/cli/trusted-folders.md) - Control execution
-  policies by folder.
-- [**Enterprise Guide**](./docs/cli/enterprise.md) - Deploy and manage in a
-  corporate environment.
-- [**Telemetry & Monitoring**](./docs/cli/telemetry.md) - Usage tracking.
-- [**Tools reference**](./docs/reference/tools.md) - Built-in tools overview.
-- [**Local development**](./docs/local-development.md) - Local development
-  tooling.
-
-### Troubleshooting & Support
-
-- [**Troubleshooting Guide**](./docs/resources/troubleshooting.md) - Common
-  issues and solutions.
-- [**FAQ**](./docs/resources/faq.md) - Frequently asked questions.
-- Use `/bug` command to report issues directly from the CLI.
-
-### Using MCP Servers
-
-Configure MCP servers in `~/.gemini/settings.json` to extend Gemini CLI with
-custom tools:
+The eval workflow is local-first and persists under `.gemini/`:
 
 ```text
-> @github List my open pull requests
-> @slack Send a summary of today's commits to #dev channel
-> @database Run a query to find inactive users
+.gemini/
+  GEMINI.md
+  evals/
+    <generated>.eval.ts
+  eval-rules/
+    index.json
+    <generated-or-installed>.rule.md
 ```
 
-See the [MCP Server Integration guide](./docs/tools/mcp-server.md) for setup
-instructions.
+Key files:
 
-## 🤝 Contributing
+- `.gemini/evals/`: generated local evals
+- `.gemini/eval-rules/index.json`: installed/generated metadata and analytics
+- `.gemini/GEMINI.md`: active managed rule fragments
 
-We welcome contributions! Gemini CLI is fully open source (Apache 2.0), and we
-encourage the community to:
+## Architecture Summary
 
-- Report bugs and suggest features.
-- Improve documentation.
-- Submit code improvements.
-- Share your MCP servers and extensions.
+The CLI layer handles user actions and presentation through `/generate-eval`,
+`/evals`, and the `EvalsMarketplaceView` TUI. The core eval domain in
+`packages/core/src/evals/` owns the lifecycle logic: misbehavior detection,
+draft generation, registry fetching and caching, coverage analysis, and local
+state management.
 
-See our [Contributing Guide](./CONTRIBUTING.md) for development setup, coding
-standards, and how to submit pull requests.
+Data flow is local-first. Installs and generated artifacts are written to
+`.gemini/`, while remote registry access is optional and used only for
+marketplace discovery. This lets the core eval workflow continue to function
+even when network-backed features are unavailable.
 
-Check our [Official Roadmap](https://github.com/orgs/google-gemini/projects/11)
-for planned features and priorities.
+## Repository Guide
 
-## 📖 Resources
+- [`packages/core/src/evals`](./packages/core/src/evals) Core eval logic:
+  generation, registry, coverage, rule management, types
+- [`packages/cli/src/ui/commands`](./packages/cli/src/ui/commands) CLI
+  entrypoints for `/evals` and `/generate-eval`
+- [`packages/cli/src/ui/components/views`](./packages/cli/src/ui/components/views)
+  TUI implementation, including `EvalsMarketplaceView`
+- [`eval-registry.json`](./eval-registry.json) Marketplace registry data used by
+  the eval browser
+- [`docs/cli/evals.md`](./docs/cli/evals.md) Contributor-facing guide for the
+  `/evals` and `/generate-eval` workflow
+- [`docs/reference/commands.md`](./docs/reference/commands.md) Slash command
+  reference, including `/evals` and `/generate-eval`
+- [`evals/README.md`](./evals/README.md) Behavioral eval suite documentation
+  inherited from the upstream project
 
-- **[Official Roadmap](./ROADMAP.md)** - See what's coming next.
-- **[Changelog](./docs/changelogs/index.md)** - See recent notable updates.
-- **[NPM Package](https://www.npmjs.com/package/@google/gemini-cli)** - Package
-  registry.
-- **[GitHub Issues](https://github.com/google-gemini/gemini-cli/issues)** -
-  Report bugs or request features.
-- **[Security Advisories](https://github.com/google-gemini/gemini-cli/security/advisories)** -
-  Security updates.
+## Development
 
-### Uninstall
+Install dependencies:
 
-See the [Uninstall Guide](./docs/resources/uninstall.md) for removal
-instructions.
+```bash
+npm ci
+```
 
-## 📄 Legal
+Start the CLI in development mode:
 
-- **License**: [Apache License 2.0](LICENSE)
-- **Terms of Service**: [Terms & Privacy](./docs/resources/tos-privacy.md)
-- **Security**: [Security Policy](SECURITY.md)
+```bash
+npm run start
+```
 
----
+Useful commands:
 
-<p align="center">
-  Built with ❤️ by Google and the open source community
-</p>
+```bash
+npm run build
+npm run lint
+npm run typecheck
+```
+
+Run the eval suites:
+
+```bash
+npm run test:always_passing_evals
+npm run test:all_evals
+```
+
+Run integration tests:
+
+```bash
+npm run test:integration:sandbox:none
+```
+
+## Why This Fork Exists
+
+The product problem here is not just "write more eval files." It is how to make
+behavioral eval work discoverable, local-first, and contribution-ready:
+
+- detect failures from real user interactions
+- convert those failures into reproducible evals
+- pair evals with local behavior rules
+- manage them through a dedicated `/evals` surface
+- understand what coverage is still missing
+
+This fork exists to build and validate that workflow end to end.
