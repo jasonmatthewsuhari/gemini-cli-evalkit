@@ -31,6 +31,8 @@ import { ToolsList } from './views/ToolsList.js';
 import { SkillsList } from './views/SkillsList.js';
 import { AgentsStatus } from './views/AgentsStatus.js';
 import { McpStatus } from './views/McpStatus.js';
+import { EvalsList } from './views/EvalsList.js';
+import { EvalsCoverage } from './views/EvalsCoverage.js';
 import { ChatList } from './views/ChatList.js';
 import { ModelMessage } from './messages/ModelMessage.js';
 import { ThinkingMessage } from './messages/ThinkingMessage.js';
@@ -189,7 +191,10 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
         <ModelMessage model={itemForDisplay.model} />
       )}
       {itemForDisplay.type === 'quit' && (
-        <SessionSummaryDisplay duration={itemForDisplay.duration} />
+        <SessionSummaryDisplay
+          duration={itemForDisplay.duration}
+          evalSummary={itemForDisplay.evalSummary}
+        />
       )}
       {itemForDisplay.type === 'tool_group' && (
         <ToolGroupMessage
@@ -232,6 +237,21 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
       )}
       {itemForDisplay.type === 'chat_list' && (
         <ChatList chats={itemForDisplay.chats} />
+      )}
+      {itemForDisplay.type === 'evals_list' && (
+        <EvalsList
+          combos={itemForDisplay.combos}
+          title={itemForDisplay.title}
+          view={itemForDisplay.view}
+        />
+      )}
+      {itemForDisplay.type === 'evals_coverage' && (
+        <EvalsCoverage
+          tools={itemForDisplay.tools}
+          behavioral={itemForDisplay.behavioral}
+          suggestions={itemForDisplay.suggestions}
+          totalGaps={itemForDisplay.totalGaps}
+        />
       )}
     </Box>
   );

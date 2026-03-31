@@ -1,5 +1,16 @@
 # Behavioral Evals
 
+This fork adds a contributor-facing product layer on top of the behavioral eval
+suite:
+
+- `/evals` for browsing, inspecting, and managing eval-rule combos
+- `/evals coverage` for actionable gap analysis
+- `/generate-eval` for creating local eval-rule pairs from observed failures
+
+If you are looking for the product workflow first, start with
+[the `/evals` guide](../docs/cli/evals.md). This document remains the lower
+level reference for the behavioral eval suite itself.
+
 Behavioral evaluations (evals) are tests designed to validate the agent's
 behavior in response to specific prompts. They serve as a critical feedback loop
 for changes to system prompts, tool definitions, and other model-steering

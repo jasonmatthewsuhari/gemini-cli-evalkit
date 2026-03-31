@@ -58,6 +58,8 @@ import {
   createAvailabilityContextProvider,
 } from '../availability/policyHelpers.js';
 import { coreEvents } from '../utils/events.js';
+import { detectMisbehavior } from '../evals/misbehaviorDetector.js';
+import { setPendingEvalContext } from '../evals/pendingEvalStore.js';
 import type { AgentLoopContext } from '../config/agent-loop-context.js';
 
 export enum StreamEventType {
@@ -348,6 +350,10 @@ export class GeminiChat {
     // Add user content to history ONCE before any attempts.
     this.history.push(userContent);
     const requestContents = this.getHistory(true);
+
+    // Async misbehavior detection: fire-and-forget, does not block the turn.
+    // Looks at the previous model turn (history[-2]) vs this user message (history[-1]).
+    void this.runMisbehaviorDetection(userContent);
 
     const streamWithRetries = async function* (
       this: GeminiChat,
@@ -746,6 +752,63 @@ export class GeminiChat {
     this.history.push(content);
   }
 
+  /**
+   * Runs misbehavior detection asynchronously after a new user message arrives.
+   * Looks at the previous model turn to see if the user is correcting a mistake.
+   * Fire-and-forget: errors are swallowed, latency does not block the turn.
+   */
+  private async runMisbehaviorDetection(userContent: Content): Promise<void> {
+    try {
+      const contentGenerator = this.context.config.getContentGenerator();
+      if (!contentGenerator) return;
+
+      // We need at least: [previous user msg, previous model response, current user msg]
+      if (this.history.length < 3) return;
+
+      // Find the last model turn (second to last entry before the current user message)
+      const previousModelTurn = this.history[this.history.length - 2];
+      if (!previousModelTurn || previousModelTurn.role !== 'model') return;
+
+      const userText = userContent.parts
+        ?.filter((p) => p.text && !p.thought)
+        .map((p) => p.text)
+        .join('\n')
+        .trim();
+
+      if (!userText || userText.length < 5) return;
+
+      // Summarize the agent response for the prompt
+      const agentSummary = summarizeModelTurn(previousModelTurn);
+
+      const result = await detectMisbehavior(
+        contentGenerator,
+        agentSummary,
+        userText,
+        this.context.config.getModel(),
+      );
+
+      if (result.detected) {
+        // Find the previous user message for context
+        const previousUserTurn = findLastUserTurn(
+          this.history.slice(0, this.history.length - 2),
+        );
+
+        setPendingEvalContext({
+          originalPrompt: previousUserTurn ?? '',
+          agentResponseSummary: agentSummary,
+          userCorrection: userText,
+          detectionDescription: result.description,
+          relevantFiles: {},
+          capturedAt: new Date().toISOString(),
+        });
+
+        coreEvents.emitEvalHint(result.description, result.confidence);
+      }
+    } catch {
+      // Detection is best-effort — never surface errors
+    }
+  }
+
   setHistory(history: readonly Content[]): void {
     this.history = [...history];
     this.lastPromptTokenCount = estimateTokenCountSync(
@@ -1063,6 +1126,38 @@ export class GeminiChat {
       });
     }
   }
+}
+
+/** Summarizes a model turn for use in detection prompts. */
+function summarizeModelTurn(content: Content): string {
+  if (!content.parts) return '';
+  return content.parts
+    .filter((p) => p.text && !p.thought)
+    .map((p) => p.text)
+    .concat(
+      content.parts
+        .filter((p) => p.functionCall)
+        .map((p) => `[Tool call: ${p.functionCall?.name ?? 'unknown'}]`),
+    )
+    .join('\n')
+    .trim()
+    .slice(0, 2000);
+}
+
+/** Finds the last user text message in a history slice. */
+function findLastUserTurn(history: Content[]): string | null {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const content = history[i];
+    if (content.role === 'user') {
+      const text = content.parts
+        ?.filter((p) => p.text && !p.thought && !p.functionResponse)
+        .map((p) => p.text)
+        .join('\n')
+        .trim();
+      if (text) return text;
+    }
+  }
+  return null;
 }
 
 /** Visible for Testing */

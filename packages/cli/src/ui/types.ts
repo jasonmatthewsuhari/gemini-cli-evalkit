@@ -223,9 +223,18 @@ export type HistoryItemModel = HistoryItemBase & {
   model: string;
 };
 
+export type EvalExitSummary = {
+  activeRules: Array<{
+    name: string;
+    source: 'official' | 'community' | 'generated';
+    generatedAt?: string;
+  }>;
+};
+
 export type HistoryItemQuit = HistoryItemBase & {
   type: 'quit';
   duration: string;
+  evalSummary?: EvalExitSummary;
 };
 
 export type HistoryItemToolGroup = HistoryItemBase & {
@@ -294,6 +303,40 @@ export type AgentDefinitionJson = Pick<
   AgentDefinition,
   'name' | 'displayName' | 'description' | 'kind'
 >;
+
+// Eval-rule combo display type
+export interface EvalComboDisplay {
+  name: string;
+  description?: string;
+  category: string;
+  source: 'official' | 'generated' | 'community';
+  enabled: boolean;
+  passRate?: number;
+  runs?: number;
+  installed?: boolean;
+}
+
+export type HistoryItemEvalsList = HistoryItemBase & {
+  type: 'evals_list';
+  combos: EvalComboDisplay[];
+  title: string;
+  view?: 'installed' | 'marketplace';
+};
+
+export type HistoryItemEvalsCoverage = HistoryItemBase & {
+  type: 'evals_coverage';
+  tools: Array<{ name: string; evalCount: number; isGap: boolean }>;
+  behavioral: Array<{ category: string; evalCount: number; isGap: boolean }>;
+  suggestions: Array<{
+    kind: 'tool' | 'behavior';
+    target: string;
+    category: string;
+    prompt: string;
+    rationale: string;
+    upstreamPotential: 'high' | 'medium';
+  }>;
+  totalGaps: number;
+};
 
 export type HistoryItemAgentsList = HistoryItemBase & {
   type: 'agents_list';
@@ -380,7 +423,9 @@ export type HistoryItemWithoutId =
   | HistoryItemMcpStatus
   | HistoryItemChatList
   | HistoryItemThinking
-  | HistoryItemHint;
+  | HistoryItemHint
+  | HistoryItemEvalsList
+  | HistoryItemEvalsCoverage;
 
 export type HistoryItem = HistoryItemWithoutId & { id: number };
 
@@ -405,6 +450,8 @@ export enum MessageType {
   MCP_STATUS = 'mcp_status',
   CHAT_LIST = 'chat_list',
   HINT = 'hint',
+  EVALS_LIST = 'evals_list',
+  EVALS_COVERAGE = 'evals_coverage',
 }
 
 // Simplified message structure for internal feedback

@@ -160,6 +160,17 @@ export interface SlashCommandConflictsPayload {
 }
 
 /**
+ * Payload for the 'eval-hint' event.
+ * Fired when the misbehavior detector identifies a correction in the user's message.
+ */
+export interface EvalHintPayload {
+  /** One-sentence description of what the agent did wrong */
+  description: string;
+  /** Confidence score from the detector (0-1) */
+  confidence: number;
+}
+
+/**
  * Payload for the 'quota-changed' event.
  */
 export interface QuotaChangedPayload {
@@ -192,6 +203,7 @@ export enum CoreEvent {
   QuotaChanged = 'quota-changed',
   TelemetryKeychainAvailability = 'telemetry-keychain-availability',
   TelemetryTokenStorageType = 'telemetry-token-storage-type',
+  EvalHint = 'eval-hint',
 }
 
 /**
@@ -225,6 +237,7 @@ export interface CoreEvents extends ExtensionEvents {
   [CoreEvent.SlashCommandConflicts]: [SlashCommandConflictsPayload];
   [CoreEvent.TelemetryKeychainAvailability]: [KeychainAvailabilityEvent];
   [CoreEvent.TelemetryTokenStorageType]: [TokenStorageInitializationEvent];
+  [CoreEvent.EvalHint]: [EvalHintPayload];
 }
 
 type EventBacklogItem = {
@@ -426,6 +439,14 @@ export class CoreEventEmitter extends EventEmitter<CoreEvents> {
 
   emitTelemetryTokenStorageType(event: TokenStorageInitializationEvent): void {
     this._emitOrQueue(CoreEvent.TelemetryTokenStorageType, event);
+  }
+
+  /**
+   * Notifies the UI that misbehavior was detected and an eval can be generated.
+   */
+  emitEvalHint(description: string, confidence: number): void {
+    const payload: EvalHintPayload = { description, confidence };
+    this._emitOrQueue(CoreEvent.EvalHint, payload);
   }
 }
 

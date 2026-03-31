@@ -164,6 +164,48 @@ Slash commands provide meta-level control over the CLI itself.
 
 - **Description:** Open a dialog for selecting supported editors.
 
+### `/evals`
+
+- **Description:** Manage the behavioral eval ecosystem for the current
+  workspace.
+- **Default behavior:** Opens the interactive eval marketplace and coverage TUI.
+- **Sub-commands:**
+  - **`list`**:
+    - **Description:** List installed marketplace evals and locally generated
+      eval-rule combos.
+    - **Usage:** `/evals list`
+  - **`browse`**:
+    - **Description:** List evals available from the upstream registry without
+      opening the full TUI.
+    - **Usage:** `/evals browse`
+  - **`coverage`**:
+    - **Description:** Show tool and behavioral coverage gaps inferred from the
+      local eval suite, plus suggested next eval prompts for contributors.
+    - **Usage:** `/evals coverage`
+  - **`show <name>`**:
+    - **Description:** Show details for a local or marketplace eval, including
+      contribution-fit metadata for generated evals.
+    - **Usage:** `/evals show <name>`
+  - **`install <name>`**:
+    - **Description:** Install a marketplace eval-rule combo and activate its
+      rule locally.
+  - **`uninstall <name>`**:
+    - **Description:** Remove an installed marketplace eval-rule combo.
+  - **`enable <name>`**:
+    - **Description:** Re-enable an installed or generated eval-rule combo.
+  - **`disable <name>`**:
+    - **Description:** Disable an installed or generated eval-rule combo.
+  - **`delete <name>`**:
+    - **Description:** Delete a locally generated eval-rule combo.
+
+### `/generate-eval`
+
+- **Description:** Generate a local behavioral eval plus a paired `GEMINI.md`
+  rule fragment from an observed agent mistake.
+- **Usage:** `/generate-eval <describe what the agent did wrong>`
+- **Behavior:** Saves generated evals under `.gemini/evals/` and paired rules
+  under `.gemini/eval-rules/` after confirmation.
+
 ### `/extensions`
 
 - **Description:** Manage extensions. See

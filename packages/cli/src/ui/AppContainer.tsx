@@ -67,6 +67,7 @@ import {
   refreshServerHierarchicalMemory,
   flattenMemory,
   type MemoryChangedPayload,
+  type EvalHintPayload,
   writeToStdout,
   disableMouseEvents,
   enterAlternateScreen,
@@ -1759,6 +1760,10 @@ Logging in with Google... Restarting Gemini CLI to continue.
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         handleSlashCommand('/ide status');
         return true;
+      } else if (keyMatchers[Command.GENERATE_EVAL](key)) {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        handleSlashCommand('/generate-eval');
+        return true;
       } else if (
         keyMatchers[Command.SHOW_MORE_LINES](key) &&
         !enteringConstrainHeightMode
@@ -2151,6 +2156,24 @@ Logging in with Google... Restarting Gemini CLI to continue.
       coreEvents.off(CoreEvent.MemoryChanged, handleMemoryChanged);
     };
   }, []);
+
+  useEffect(() => {
+    const handleEvalHint = (payload: EvalHintPayload) => {
+      if (payload.confidence >= 0.8) {
+        historyManager.addItem(
+          {
+            type: MessageType.HINT,
+            text: `Misbehavior detected (${Math.round(payload.confidence * 100)}% confidence): ${payload.description} — Press Ctrl+Q to generate an eval.`,
+          },
+          Date.now(),
+        );
+      }
+    };
+    coreEvents.on(CoreEvent.EvalHint, handleEvalHint);
+    return () => {
+      coreEvents.off(CoreEvent.EvalHint, handleEvalHint);
+    };
+  }, [historyManager]);
 
   useEffect(() => {
     let isMounted = true;

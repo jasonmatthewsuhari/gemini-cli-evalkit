@@ -520,6 +520,9 @@ interface StatsDisplayProps {
   currentModel?: string;
   quotaStats?: QuotaStats;
   creditBalance?: number;
+  evalSummary?: {
+    activeRules: Array<{ name: string; source: string; generatedAt?: string }>;
+  };
 }
 
 export const StatsDisplay: React.FC<StatsDisplayProps> = ({
@@ -533,6 +536,7 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
   currentModel,
   quotaStats,
   creditBalance,
+  evalSummary,
 }) => {
   const { stats } = useSessionStats();
   const { metrics } = stats;
@@ -686,6 +690,37 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
           </Text>
         </SubStatRow>
       </Section>
+      {evalSummary && (
+        <Section title="Evals">
+          <StatRow title="Active Rules:">
+            <Text
+              color={
+                evalSummary.activeRules.length > 0
+                  ? theme.status.success
+                  : theme.text.secondary
+              }
+            >
+              {evalSummary.activeRules.length}
+            </Text>
+          </StatRow>
+          {evalSummary.activeRules.map((rule) => (
+            <SubStatRow key={rule.name} title={rule.name}>
+              <Text color={theme.text.secondary}>
+                {rule.source === 'generated' && rule.generatedAt
+                  ? `generated ${new Date(rule.generatedAt).toLocaleDateString()}`
+                  : rule.source}
+              </Text>
+            </SubStatRow>
+          ))}
+          {evalSummary.activeRules.length === 0 && (
+            <SubStatRow title="none active">
+              <Text color={theme.text.secondary}>
+                run /evals to install rules
+              </Text>
+            </SubStatRow>
+          )}
+        </Section>
+      )}
       <ModelUsageTable
         models={models}
         config={config}
