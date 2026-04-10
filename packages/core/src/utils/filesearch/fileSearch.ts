@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import picomatch from 'picomatch';
 import { loadIgnoreRules, type Ignore } from './ignore.js';
@@ -123,6 +124,65 @@ export interface SearchOptions {
   maxResults?: number;
 }
 
+async function searchCandidates(
+  candidates: string[],
+  pattern: string,
+  options: {
+    signal?: AbortSignal;
+    enableFuzzySearch: boolean;
+  },
+): Promise<string[]> {
+  if (pattern.includes('*') || !options.enableFuzzySearch) {
+    return filter(candidates, pattern, options.signal);
+  }
+
+  const fzf = new AsyncFzf(candidates, {
+    fuzzy: candidates.length > 20000 ? 'v1' : 'v2',
+    forward: false,
+    tiebreakers: [byBasenamePrefix, byMatchPosFromEnd, byLengthAsc],
+  });
+
+  return fzf
+    .find(pattern)
+    .then((results: Array<FzfResultItem<string>>) =>
+      results.map((entry: FzfResultItem<string>) => entry.item),
+    );
+}
+
+function mergeCandidates(
+  primary: string[],
+  secondary: string[],
+): string[] {
+  if (secondary.length === 0) {
+    return primary;
+  }
+
+  const merged = [...primary];
+  const seen = new Set(primary);
+  for (const candidate of secondary) {
+    if (!seen.has(candidate)) {
+      seen.add(candidate);
+      merged.push(candidate);
+    }
+  }
+  return merged;
+}
+
+function normalizeLiveResults(
+  results: string[],
+  rootRelativeDir: string,
+): string[] {
+  return results.map((entry) => {
+    if (entry.endsWith('/')) {
+      return entry;
+    }
+    if (entry === rootRelativeDir) {
+      return `${entry}/`;
+    }
+    return entry;
+  });
+}
+
 export interface FileSearch {
   initialize(): Promise<void>;
   search(pattern: string, options?: SearchOptions): Promise<string[]>;
@@ -133,6 +193,10 @@ class RecursiveFileSearch implements FileSearch {
   private resultCache: ResultCache | undefined;
   private allFiles: string[] = [];
   private fzf: AsyncFzf<string[]> | undefined;
+  private liveDirectoryCache = new Map<
+    string,
+    { mtimeNs: bigint; results: string[] }
+  >();
 
   constructor(private readonly options: FileSearchOptions) {}
 
@@ -178,25 +242,25 @@ class RecursiveFileSearch implements FileSearch {
       filteredCandidates = candidates;
     } else {
       let shouldCache = true;
-      if (pattern.includes('*') || !this.fzf) {
-        filteredCandidates = await filter(candidates, pattern, options.signal);
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        filteredCandidates = await this.fzf
-          .find(pattern)
-          .then((results: Array<FzfResultItem<string>>) =>
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-            results.map((entry: FzfResultItem<string>) => entry.item),
-          )
-          .catch(() => {
-            shouldCache = false;
-            return [];
-          });
-      }
+      filteredCandidates = await searchCandidates(candidates, pattern, {
+        signal: options.signal,
+        enableFuzzySearch: this.options.enableFuzzySearch && !!this.fzf,
+      }).catch((error: unknown) => {
+        shouldCache = false;
+        throw error;
+      });
 
       if (shouldCache) {
         this.resultCache.set(pattern, filteredCandidates);
       }
+    }
+
+    if (pattern !== '*') {
+      const freshCandidates = await this.searchFreshCandidates(
+        pattern,
+        options.signal,
+      );
+      filteredCandidates = mergeCandidates(filteredCandidates, freshCandidates);
     }
 
     const fileFilter = this.ignore.getFileFilter();
@@ -220,6 +284,92 @@ class RecursiveFileSearch implements FileSearch {
       }
     }
     return results;
+  }
+
+  private async searchFreshCandidates(
+    pattern: string,
+    signal: AbortSignal | undefined,
+  ): Promise<string[]> {
+    if (!this.ignore || signal?.aborted) {
+      return [];
+    }
+
+    const dir =
+      pattern !== '*' && !pattern.endsWith('/')
+        ? path.dirname(pattern)
+        : pattern.endsWith('/')
+          ? pattern
+          : '.';
+    const crawlDirectory = path.resolve(this.options.projectRoot, dir);
+    const relativeToProjectRoot = path.relative(
+      this.options.projectRoot,
+      crawlDirectory,
+    );
+    if (
+      relativeToProjectRoot === '..' ||
+      relativeToProjectRoot.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativeToProjectRoot)
+    ) {
+      return [];
+    }
+
+    const rootRelativeDir = relativeToProjectRoot
+      .split(path.sep)
+      .join(path.posix.sep);
+    const maxDepth = pattern.endsWith('/') ? this.options.maxDepth : 0;
+    const cacheKey = `${crawlDirectory}:${maxDepth ?? 'recursive'}`;
+
+    let results: string[];
+    if (maxDepth === 0) {
+      try {
+        const stats = await stat(crawlDirectory, { bigint: true });
+        const cachedEntry = this.liveDirectoryCache.get(cacheKey);
+        if (cachedEntry?.mtimeNs === stats.mtimeNs) {
+          results = cachedEntry.results;
+        } else {
+          results = normalizeLiveResults(
+            await crawl({
+              crawlDirectory,
+              cwd: this.options.projectRoot,
+              maxDepth,
+              maxFiles: this.options.maxFiles ?? 20000,
+              ignore: this.ignore,
+              cache: false,
+              cacheTtl: 0,
+            }),
+            rootRelativeDir,
+          );
+          this.liveDirectoryCache.set(cacheKey, {
+            mtimeNs: stats.mtimeNs,
+            results,
+          });
+        }
+      } catch {
+        return [];
+      }
+    } else {
+      results = normalizeLiveResults(
+        await crawl({
+          crawlDirectory,
+          cwd: this.options.projectRoot,
+          maxDepth,
+          maxFiles: this.options.maxFiles ?? 20000,
+          ignore: this.ignore,
+          cache: false,
+          cacheTtl: 0,
+        }),
+        rootRelativeDir,
+      );
+    }
+
+    if (signal?.aborted) {
+      throw new AbortError();
+    }
+
+    return searchCandidates(results, pattern, {
+      signal,
+      enableFuzzySearch: this.options.enableFuzzySearch,
+    });
   }
 
   private buildResultCache(): void {

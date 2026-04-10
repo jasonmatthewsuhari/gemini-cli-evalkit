@@ -6,6 +6,7 @@
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { FileSearchFactory, AbortError, filter } from './fileSearch.js';
 import { createTmpDir, cleanupTmpDir } from '@google/gemini-cli-test-utils';
 import * as crawler from './crawler.js';
@@ -678,6 +679,278 @@ describe('FileSearch', () => {
     // Although we can't directly inspect ResultCache.hits/misses from here,
     // the correctness of specificResults after a broad search implicitly
     // verifies that the caching mechanism, including bestBaseQuery, is working.
+  });
+
+  it('should include new root-level paths created after initialization', async () => {
+    tmpDir = await createTmpDir({
+      src: {
+        'existing.ts': '',
+      },
+    });
+
+    const fileSearch = FileSearchFactory.create({
+      projectRoot: tmpDir,
+      fileDiscoveryService: new FileDiscoveryService(tmpDir, {
+        respectGitIgnore: false,
+        respectGeminiIgnore: false,
+      }),
+      ignoreDirs: [],
+      cache: true,
+      cacheTtl: 30,
+      enableRecursiveFileSearch: true,
+      enableFuzzySearch: true,
+    });
+
+    await fileSearch.initialize();
+
+    await fs.mkdir(path.join(tmpDir, 'new-folder'));
+    await fs.writeFile(path.join(tmpDir, 'new-folder', 'new-file.ts'), '');
+
+    expect(await fileSearch.search('new-fo')).toContain('new-folder/');
+    expect(await fileSearch.search('new-folder/')).toEqual([
+      'new-folder/',
+      'new-folder/new-file.ts',
+    ]);
+  });
+
+  it('should include new nested paths created after initialization', async () => {
+    tmpDir = await createTmpDir({
+      src: {
+        'existing.ts': '',
+      },
+    });
+
+    const fileSearch = FileSearchFactory.create({
+      projectRoot: tmpDir,
+      fileDiscoveryService: new FileDiscoveryService(tmpDir, {
+        respectGitIgnore: false,
+        respectGeminiIgnore: false,
+      }),
+      ignoreDirs: [],
+      cache: true,
+      cacheTtl: 30,
+      enableRecursiveFileSearch: true,
+      enableFuzzySearch: true,
+    });
+
+    await fileSearch.initialize();
+
+    await fs.mkdir(path.join(tmpDir, 'src', 'new-folder'));
+    await fs.writeFile(
+      path.join(tmpDir, 'src', 'new-folder', 'new-file.ts'),
+      '',
+    );
+
+    expect(await fileSearch.search('src/new-fo')).toContain('src/new-folder/');
+    expect(await fileSearch.search('src/new-folder/')).toEqual([
+      'src/new-folder/',
+      'src/new-folder/new-file.ts',
+    ]);
+  });
+
+  it('should merge fresh non-directory matches with cached sibling hits', async () => {
+    tmpDir = await createTmpDir({
+      src: {
+        'existing.ts': '',
+      },
+    });
+
+    const fileSearch = FileSearchFactory.create({
+      projectRoot: tmpDir,
+      fileDiscoveryService: new FileDiscoveryService(tmpDir, {
+        respectGitIgnore: false,
+        respectGeminiIgnore: false,
+      }),
+      ignoreDirs: [],
+      cache: true,
+      cacheTtl: 30,
+      enableRecursiveFileSearch: true,
+      enableFuzzySearch: true,
+    });
+
+    await fileSearch.initialize();
+
+    expect(await fileSearch.search('src/e')).toEqual(['src/existing.ts']);
+
+    await fs.writeFile(path.join(tmpDir, 'src', 'example.ts'), '');
+
+    expect(await fileSearch.search('src/e')).toEqual([
+      'src/existing.ts',
+      'src/example.ts',
+    ]);
+  });
+
+  it('should not crawl outside the project root when refreshing live results', async () => {
+    const parentDir = await createTmpDir({
+      project: {
+        src: {
+          'existing.ts': '',
+        },
+      },
+      outside: {
+        'secret.txt': '',
+      },
+    });
+    tmpDir = path.join(parentDir, 'project');
+
+    const fileSearch = FileSearchFactory.create({
+      projectRoot: tmpDir,
+      fileDiscoveryService: new FileDiscoveryService(tmpDir, {
+        respectGitIgnore: false,
+        respectGeminiIgnore: false,
+      }),
+      ignoreDirs: [],
+      cache: true,
+      cacheTtl: 30,
+      enableRecursiveFileSearch: true,
+      enableFuzzySearch: true,
+    });
+
+    await fileSearch.initialize();
+
+    expect(await fileSearch.search('../outside')).toEqual([]);
+
+    await cleanupTmpDir(parentDir);
+    tmpDir = '';
+  });
+
+  it('should mark nested live-refresh directories with trailing slashes', async () => {
+    tmpDir = await createTmpDir({
+      src: {
+        'existing.ts': '',
+      },
+    });
+
+    const fileSearch = FileSearchFactory.create({
+      projectRoot: tmpDir,
+      fileDiscoveryService: new FileDiscoveryService(tmpDir, {
+        respectGitIgnore: false,
+        respectGeminiIgnore: false,
+      }),
+      ignoreDirs: [],
+      cache: true,
+      cacheTtl: 30,
+      enableRecursiveFileSearch: true,
+      enableFuzzySearch: true,
+    });
+
+    await fileSearch.initialize();
+
+    await fs.mkdir(path.join(tmpDir, 'src', 'new-folder', 'child-dir'), {
+      recursive: true,
+    });
+
+    expect(await fileSearch.search('src/new-folder/')).toEqual([
+      'src/new-folder/',
+      'src/new-folder/child-dir/',
+    ]);
+  });
+
+  it('should refresh explicit directory listings even when cached results exist', async () => {
+    tmpDir = await createTmpDir({
+      src: {
+        'existing.ts': '',
+        nested: {
+          'deep.ts': '',
+        },
+      },
+    });
+
+    const fileSearch = FileSearchFactory.create({
+      projectRoot: tmpDir,
+      fileDiscoveryService: new FileDiscoveryService(tmpDir, {
+        respectGitIgnore: false,
+        respectGeminiIgnore: false,
+      }),
+      ignoreDirs: [],
+      cache: true,
+      cacheTtl: 30,
+      enableRecursiveFileSearch: true,
+      enableFuzzySearch: true,
+    });
+
+    await fileSearch.initialize();
+
+    expect(await fileSearch.search('src/')).toEqual([
+      'src/',
+      'src/nested/',
+      'src/existing.ts',
+      'src/nested/deep.ts',
+    ]);
+
+    await fs.writeFile(path.join(tmpDir, 'src', 'new.ts'), '');
+
+    expect(await fileSearch.search('src/')).toEqual([
+      'src/',
+      'src/nested/',
+      'src/existing.ts',
+      'src/nested/deep.ts',
+      'src/new.ts',
+    ]);
+  });
+
+  it('should refresh nested descendants for explicit directory listings', async () => {
+    tmpDir = await createTmpDir({
+      src: {
+        'existing.ts': '',
+        nested: {
+          'deep.ts': '',
+        },
+      },
+    });
+
+    const fileSearch = FileSearchFactory.create({
+      projectRoot: tmpDir,
+      fileDiscoveryService: new FileDiscoveryService(tmpDir, {
+        respectGitIgnore: false,
+        respectGeminiIgnore: false,
+      }),
+      ignoreDirs: [],
+      cache: true,
+      cacheTtl: 30,
+      enableRecursiveFileSearch: true,
+      enableFuzzySearch: true,
+    });
+
+    await fileSearch.initialize();
+    await fileSearch.search('src/');
+
+    await fs.writeFile(path.join(tmpDir, 'src', 'nested', 'new.ts'), '');
+
+    expect(await fileSearch.search('src/')).toEqual([
+      'src/',
+      'src/nested/',
+      'src/existing.ts',
+      'src/nested/deep.ts',
+      'src/nested/new.ts',
+    ]);
+  });
+
+  it('should use fuzzy matching for fresh live-refresh results', async () => {
+    tmpDir = await createTmpDir({
+      src: {
+        'existing.ts': '',
+      },
+    });
+
+    const fileSearch = FileSearchFactory.create({
+      projectRoot: tmpDir,
+      fileDiscoveryService: new FileDiscoveryService(tmpDir, {
+        respectGitIgnore: false,
+        respectGeminiIgnore: false,
+      }),
+      ignoreDirs: [],
+      cache: true,
+      cacheTtl: 30,
+      enableRecursiveFileSearch: true,
+      enableFuzzySearch: true,
+    });
+
+    await fileSearch.initialize();
+
+    await fs.writeFile(path.join(tmpDir, 'new-file.ts'), '');
+
+    expect(await fileSearch.search('nft')).toContain('new-file.ts');
   });
 
   it('should be case-insensitive by default', async () => {
